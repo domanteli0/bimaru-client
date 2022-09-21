@@ -49,6 +49,10 @@ commandCheck = "check"
 commandToggle :: String
 commandToggle = "toggle"
 
+commandExit :: String
+commandExit = "q"
+
+
 -- Evaluation : handle each line user inputs
 cmd :: String -> Repl ()
 cmd c
@@ -65,6 +69,7 @@ cmd c
           [(n, "")] -> hints n
           _ -> liftIO $ Prelude.putStrLn $ "Illegal " ++ commandHint ++ " argument: " ++ str
       _ -> liftIO $ Prelude.putStrLn $ "Illegal format, \"" ++ commandHint ++ " $number_of_hints\" expected, e.g \"" ++ commandHint ++ " 1\""
+  | trim c == commandExit = error "Exit"
 cmd c = liftIO $ Prelude.putStrLn $ "Unknown command: " ++ c
 
 tokens :: String -> [String]

@@ -97,7 +97,26 @@ mkCheck _ = Check co
 -- Receive raw user input tokens
 -- toggle :: State -> [String] -> State
 -- toggle (State ts hs c r) t = print t
-toggle (State ts hs c r h) t = State [] [] [] [] 0
+toggle :: State -> [String] -> State
+toggle (State _ hs c r h) string = State co hs c r h
+    where
+        co = [
+            Coord 8 9,
+            Coord 7 9,
+            Coord 6 9,
+            Coord 5 9,
+
+            Coord 5 5,
+            Coord 5 6,
+            Coord 5 7,
+
+            Coord 3 1,
+            Coord 3 2,
+            Coord 3 3
+
+            -- Coord
+            ]
+
 
 -- IMPLEMENT
 -- Adds hint data to the game state

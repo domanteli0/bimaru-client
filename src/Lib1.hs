@@ -111,4 +111,19 @@ decimalStringToInt = stringToInt 10
 -- IMPLEMENT
 -- Adds hint data to the game state
 hint :: State -> Document -> State
-hint (State ts hs c r h) hNo = State [] [] [] [] 0
+hint (State ts _ c r h) hintDoc = State ts (hs coordDoc []) c r h
+    where
+        coordDoc = findDMap "coords" (fromDMap hintDoc)
+        hs :: Document -> [Coord] -> [Coord]
+        hs doc crds = do
+            -- if `tail` in the next document only has `DNull` then return the last coordinates
+            if isDNull nextDoc then  Coord getCol getRow : crds
+            -- else recursively parse other coordinates
+            else hs nextDoc $ Coord getCol getRow : crds
+            where
+                coordDoc' = fromDMap $ findDMap "head" (fromDMap doc)
+                nextDoc = findDMap "tail" (fromDMap doc)
+                getCol = numFromDoc coordDoc' "col"
+                getRow = numFromDoc coordDoc' "row"
+                numFromDoc :: [(String, Document)] -> String -> Int
+                numFromDoc doc_ str = fromDInteger $ findDMap str doc_

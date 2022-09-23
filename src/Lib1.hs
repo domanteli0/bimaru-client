@@ -4,6 +4,9 @@ module Lib1(
 ) where
 
 import Types
+import           Data.Char
+import           Data.List
+import           Data.Maybe
 -- import Lib1 (gameStart)
 -- import Control.Lens.Internal.Deque (fromList)
 -- import Lib1 (gameStart)
@@ -70,53 +73,42 @@ render = show
 -- Make check from current state
 -- Perduoti visus toggle'us
 mkCheck :: State -> Check
--- mkCheck _ = Check []
-mkCheck _ = Check co
-    where
-        co = [
-            Coord 8 9,
-            Coord 7 9,
-            Coord 6 9,
-            Coord 5 9,
-
-            Coord 5 5,
-            Coord 5 6,
-            Coord 5 7,
-
-            Coord 3 1,
-            Coord 3 2,
-            Coord 3 3
-
-            -- Coord
-            ]
-
--- col_left = [Coord 0 0, Coord 5 0, Coord ]
+mkCheck (State ts _ _ _ _) = Check ts
 
 -- IMPLEMENT
 -- Toggle state's value
 -- Receive raw user input tokens
 -- toggle :: State -> [String] -> State
--- toggle (State ts hs c r) t = print t
 toggle :: State -> [String] -> State
-toggle (State _ hs c r h) string = State co hs c r h
+toggle (State ts hs c r h) stringS = State ts' hs c r h
     where
-        co = [
-            Coord 8 9,
-            Coord 7 9,
-            Coord 6 9,
-            Coord 5 9,
+        newToggle = Coord col' row'
+            where
+                col'= decimalStringToInt (head stringS)
+                row' = decimalStringToInt (last stringS)
+        ts' = if newToggle `elem` ts then delete newToggle ts else newToggle : ts
 
-            Coord 5 5,
-            Coord 5 6,
-            Coord 5 7,
+--Parsing String to Int         
+stringToInt:: Int -> String -> Int
+stringToInt base digits
+    = sign * (foldl acc 0 $ concatMap digToInt digits1)
+      where
+      splitSign ('-' : ds) = ((-1), ds)
+      splitSign ('+' : ds) = ( 1  , ds)
+      splitSign ds         = ( 1  , ds)
+      (sign, digits1)      = splitSign digits
+      digToInt c
+          | c >= '0' && c <= '9'
+              = [ord c - ord '0']
+          | c >= 'A' && c <= 'Z'
+              =  [ord c - ord 'A' + 10]
+          | c >= 'a' && c <= 'z'
+              =  [ord c - ord 'a' + 10]
+          | otherwise = []
+      acc i1 i0= i1 * base + i0
 
-            Coord 3 1,
-            Coord 3 2,
-            Coord 3 3
-
-            -- Coord
-            ]
-
+decimalStringToInt:: String -> Int
+decimalStringToInt = stringToInt 10
 
 -- IMPLEMENT
 -- Adds hint data to the game state

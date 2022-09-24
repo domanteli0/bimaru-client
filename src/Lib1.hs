@@ -60,10 +60,35 @@ isDNull :: Document -> Bool
 isDNull DNull = True
 isDNull _ = False
 
+-- repl :: [List] -> Int -> Int -> a -> [List]
+-- repl matrix j i elem =
+    -- where
+listRepl :: [a] -> Int -> a -> [a]
+listRepl l ix el = front ++ back
+    where
+        splt  = splitAt ix l
+        front = fst splt
+        back  = el : tail (snd splt)
+
+matrixRepl :: [[a]] -> Int -> Int -> a -> [[a]]
+matrixRepl m row' col' el = front ++ back
+    where
+        splt = splitAt row' m
+        l = head $ snd splt
+        l' = listRepl l col' el
+        front = fst splt
+        back = l' : tail (snd splt)
+
 -- IMPLEMENT
 -- renders your game board
 render :: State -> String
-render = show
+render (State ts hs c r h) = concat mtrx' ++ cols
+    where
+        cols = foldl (\acc colNr -> show colNr ++ " " ++ acc ) "" c
+        -- mtrx_ = array
+        mtrx = replicate 10 ". . . . . . . . . .\n"
+        mtrx' = matrixRepl mtrx 5 10 'X'
+-- render (State ts hs c r h) = show
 -- render :: [[Char]] -> [Char]
 -- render a = foldr (\el acc -> acc:el) "" a
 

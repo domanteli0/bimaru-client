@@ -71,7 +71,7 @@ listRepl l ix el = front ++ back
         back  = el : tail (snd splt)
 
 matrixRepl :: [[a]] -> Int -> Int -> a -> [[a]]
-matrixRepl m row' col' el = front ++ back
+matrixRepl m col' row' el = front ++ back
     where
         splt = splitAt row' m
         l = head $ snd splt
@@ -82,12 +82,19 @@ matrixRepl m row' col' el = front ++ back
 -- IMPLEMENT
 -- renders your game board
 render :: State -> String
-render (State ts hs c r h) = concat mtrx' ++ cols
+-- render = show
+render (State ts hs c r _) = concat mtrx'' ++ cols
     where
         cols = foldl (\acc colNr -> show colNr ++ " " ++ acc ) "" c
-        -- mtrx_ = array
-        mtrx = replicate 10 ". . . . . . . . . .\n"
-        mtrx' = matrixRepl mtrx 5 10 'X'
+        mtr = zip r $ repeat ". . . . . . . . . . "
+        mtrx = map (\(r, str) -> str ++ show r ++ "\n") mtr
+        mtrx' = addXH mtrx hs 'H'
+        mtrx'' = addXH mtrx' ts 'X'
+        addXH :: [[Char]] -> [Coord] -> Char -> [[Char]]
+        addXH m coords char = foldl (toggleHint char) m coords
+        toggleHint char mat (Coord x y) = matrixRepl mat (x*2) y char
+
+
 -- render (State ts hs c r h) = show
 -- render :: [[Char]] -> [Char]
 -- render a = foldr (\el acc -> acc:el) "" a
@@ -113,22 +120,18 @@ toggle (State ts hs c r h) stringS = State ts' hs c r h
 
 --Parsing String to Int
 stringToInt:: Int -> String -> Int
-stringToInt base digits
-    = sign * foldl acc 0 (concatMap digToInt digits1)
-      where
-      splitSign ('-' : ds) = (-1, ds)
-      splitSign ('+' : ds) = ( 1  , ds)
-      splitSign ds         = ( 1  , ds)
-      (sign, digits1)      = splitSign digits
-      digToInt c
-          | isDigit c
-              = [ord c - ord '0']
-          | isAsciiUpper c
-              =  [ord c - ord 'A' + 10]
-          | isAsciiLower c
-              =  [ord c - ord 'a' + 10]
-          | otherwise = []
-      acc i1 i0= i1 * base + i0
+stringToInt base digits = sign * foldl acc 0 (concatMap digToInt digits1)
+    where
+        splitSign ('-' : ds) = (-1, ds)
+        splitSign ('+' : ds) = ( 1  , ds)
+        splitSign ds         = ( 1  , ds)
+        (sign, digits1)      = splitSign digits
+        digToInt c
+            | isDigit c = [ord c - ord '0']
+            | isAsciiUpper c =  [ord c - ord 'A' + 10]
+            | isAsciiLower c =  [ord c - ord 'a' + 10]
+            | otherwise = []
+        acc i1 i0= i1 * base + i0
 
 decimalStringToInt:: String -> Int
 decimalStringToInt = stringToInt 10

@@ -85,7 +85,7 @@ render :: State -> String
 -- render = show
 render (State ts hs c r _) = concat mtrx'' ++ cols
     where
-        cols = foldl (\acc colNr -> show colNr ++ " " ++ acc ) "" c
+        cols = foldl (\acc colNr -> acc ++ show colNr ++ " " ) "" c
         mtr = zip r $ repeat ". . . . . . . . . . "
         mtrx = map (\(r, str) -> str ++ show r ++ "\n") mtr
         mtrx' = addXH mtrx hs 'H'

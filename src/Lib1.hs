@@ -6,6 +6,7 @@ module Lib1(
 import Types
 import Data.Char
 import Data.List (delete)
+
 -- This is a state of your game.
 -- It must contain all values you might need during a game:
 -- number of occupied rows/cols, hints, occupied cells,..
@@ -60,9 +61,6 @@ isDNull :: Document -> Bool
 isDNull DNull = True
 isDNull _ = False
 
--- repl :: [List] -> Int -> Int -> a -> [List]
--- repl matrix j i elem =
-    -- where
 listRepl :: [a] -> Int -> a -> [a]
 listRepl l ix el = front ++ back
     where
@@ -94,7 +92,6 @@ render (State ts hs c r _) = concat mtrx'' ++ cols
         addXH m coords char = foldl (toggleHint char) m coords
         toggleHint char mat (Coord x y) = matrixRepl mat (x*2) y char
 
-
 -- render (State ts hs c r h) = show
 -- render :: [[Char]] -> [Char]
 -- render a = foldr (\el acc -> acc:el) "" a
@@ -110,13 +107,18 @@ mkCheck (State ts _ _ _ _) = Check ts
 -- Receive raw user input tokens
 -- toggle :: State -> [String] -> State
 toggle :: State -> [String] -> State
-toggle (State ts hs c r h) stringS = State ts' hs c r h
+toggle (State ts hs c r h) stringS =
+    -- error $ concat stringS
+    State (func stringS ts) hs c r h
     where
-        newToggle = Coord col' row'
-            where
-                col'= decimalStringToInt (head stringS)
-                row' = decimalStringToInt (last stringS)
-        ts' = if newToggle `elem` ts then delete newToggle ts else newToggle : ts
+        func :: [String] -> [Coord] -> [Coord]
+        func [] t = t
+        func [_] _ = error "Uneven number of arguments"
+        func (c':r':xs) t = do
+            let new = Coord (toInt c') (toInt r')
+            if new `elem` t then func xs (delete new t) else func xs (new : t)
+
+        toInt = decimalStringToInt
 
 --Parsing String to Int
 stringToInt:: Int -> String -> Int

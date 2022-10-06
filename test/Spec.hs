@@ -16,10 +16,15 @@ toYamlTests = testGroup "Document to yaml"
         renderDocument DNull @?= "null"
     , testCase "int" $
         renderDocument (DInteger 5) @?= "5"
+    , testCase "int" $
+        renderDocument (DInteger 12345689) @?= "12345689"
+    , testCase "string" $
+        renderDocument (DString "Hello") @?= "'Hello'"
+    , testCase "string with '\"' " $
+        renderDocument (DString "\"Hello\"") @?= "'\"Hello\"'"
     , testCase "list of ints" $
         renderDocument (DList [DInteger 5, DInteger 6]) @?= listOfInts
     -- IMPLEMENT more test cases:
-    -- * other primitive types/values
     -- * nested types
   ]
 

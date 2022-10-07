@@ -24,17 +24,12 @@ renderDocument doc = renderDoc doc 0
         renderDoc (DString s) _ = '\'' : s ++ "'\n"
         renderDoc (DInteger i) _ = show i ++ "\n"
         renderDoc (DList ls) level = do
-            lvl ++ foldl func  "" ls
+            foldl func  "" ls
                 where
                     func acc d = acc ++
                         l level ++
                         colStr d ++
                         renderDoc d (level + 1)
-                    lvl = l level
-                    -- func acc d = acc ++
-                    --     l level ++
-                    --     colStr d ++
-                    --     renderDoc d (level + 1)
 
         renderDoc (DMap m) level = do
             let lvl = l level

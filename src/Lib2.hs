@@ -11,10 +11,8 @@ import Data.Aeson (Value(Bool))
 -- First, make Check an instance of ToDocument class
 instance ToDocument Check where
     toDocument :: Check -> Document
-    toDocument a = DNull
+    toDocument c = DNull
 
--- IMPLEMENT
--- ASSIGNEE: DOMANTAS
 -- Renders document to yaml
 renderDocument :: Document -> String
 renderDocument doc = renderDoc doc 0
@@ -39,22 +37,16 @@ renderDocument doc = renderDoc doc 0
                         l level ++
                         fst tup ++ mapStr (snd tup) ++
                         renderDoc (snd tup) (level + 1)
-                    -- func acc tup = error "TO IMPLEMENT"
 
         l ind = concat (replicate (2 * ind) " ")
 
         listStr d = if isDCol d then "-\n" else "- "
         mapStr d = if isDCol d then ":\n" else ": "
         isDCol :: Document -> Bool
-        -- isDCol (DList _) = True
-        -- isDCol (DMap _)  = True
-        -- isDCol __        = False
-        isDCol d = isDMap d || isDList d
-        isDMap (DMap _) = True
-        isDMap _        = False
-        isDList (DList _) = True
-        isDList _         = False
-        -- isDScalar d = (isDMap d) || (isDMap d)
+        isDCol (DList _) = True
+        isDCol (DMap _)  = True
+        isDCol __        = False
+
 -- This adds game data to initial state
 -- Errors are reported via Either but not error
 gameStart :: State -> Document -> Either String State

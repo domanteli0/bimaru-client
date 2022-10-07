@@ -56,6 +56,7 @@ toYamlTests = testGroup "Document to yaml"
             "  - 6", "  -",
             "    Lol: 'lol'"
           ]
+    -- https://yaml-online-parser.appspot.com/?yaml=List%3A%0A++-+5%0A++-+6%0A++-%0A++++Lol%3A+%27lol%27%0A++++List%3A%0A++++++-+6%0A++++++-+9%0A++++++-+null&type=json
     , testCase "map of lists of ints and maps and lists" $  -- TODO
         renderDocument (DMap [("List", DList [DInteger 5, DInteger 6, DMap [("Lol", DString "lol"), ("List", DList [DInteger 6, DInteger 9, DNull])]])])
           @?= unlines [

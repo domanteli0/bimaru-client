@@ -28,20 +28,23 @@ renderDocument doc = renderDoc doc 0
                 where
                     func acc d = acc ++
                         l level ++
-                        colStr d ++
+                        listStr d ++
                         renderDoc d (level + 1)
 
         renderDoc (DMap m) level = do
-            let lvl = l level
-            lvl ++ foldl func "" m
+            foldl func "" m
                 where
                     func :: String -> (String, Document) -> String
-                    -- func acc tup = acc ++ fst tup ++ "\n" ++ renderDoc ( DMap (snd tup)) (level + 1) ++ "\n"
-                    func acc tup = error "TO IMPLEMENT"
+                    func acc tup = acc ++
+                        l level ++
+                        fst tup ++ mapStr (snd tup) ++
+                        renderDoc (snd tup) (level + 1)
+                    -- func acc tup = error "TO IMPLEMENT"
 
         l ind = concat (replicate (2 * ind) " ")
 
-        colStr d = if isDCol d then "-\n" else "- "
+        listStr d = if isDCol d then "-\n" else "- "
+        mapStr d = if isDCol d then ":\n" else ": "
         isDCol :: Document -> Bool
         -- isDCol (DList _) = True
         -- isDCol (DMap _)  = True

@@ -1,28 +1,62 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE InstanceSigs #-}
 module Lib2(renderDocument, hint, gameStart) where
 
 import Types ( ToDocument(..), Document(..), Check )
-import Lib1 (State(..))
+import Lib1 (State(..), render)
+import Data.Aeson (Value(Bool))
 
 -- IMPLEMENT
 -- First, make Check an instance of ToDocument class
 instance ToDocument Check where
+    toDocument :: Check -> Document
     toDocument a = DNull
 
 -- IMPLEMENT
 -- ASSIGNEE: DOMANTAS
 -- Renders document to yaml
 renderDocument :: Document -> String
-renderDocument doc = "---\n" ++ renderDoc doc 0
+renderDocument doc = renderDoc doc 0
     where
-        renderDoc DNull level = "null"
-        renderDoc (DString s) level = '\'' : s ++ ['\'']
-        renderDoc (DInteger i) level = show i
-        renderDoc (DList l) level = error "Implement me"
-        renderDoc (DMap m) level = error "Implement me"
+        renderDoc :: Document -> Int -> String
+        renderDoc DNull _ = "null\n"
+        renderDoc (DString s) _ = '\'' : s ++ "'\n"
+        renderDoc (DInteger i) _ = show i ++ "\n"
+        renderDoc (DList ls) level = do
+            lvl ++ foldl func  "" ls
+                where
+                    func acc d = acc ++
+                        l level ++
+                        colStr d ++
+                        renderDoc d (level + 1)
+                    lvl = l level
+                    -- func acc d = acc ++
+                    --     l level ++
+                    --     colStr d ++
+                    --     renderDoc d (level + 1)
 
--- IMPLEMENT
+        renderDoc (DMap m) level = do
+            let lvl = l level
+            lvl ++ foldl func "" m
+                where
+                    func :: String -> (String, Document) -> String
+                    -- func acc tup = acc ++ fst tup ++ "\n" ++ renderDoc ( DMap (snd tup)) (level + 1) ++ "\n"
+                    func acc tup = error "TO IMPLEMENT"
+
+        l ind = concat (replicate (2 * ind) " ")
+
+        colStr d = if isDCol d then "-\n" else "- "
+        isDCol :: Document -> Bool
+        -- isDCol (DList _) = True
+        -- isDCol (DMap _)  = True
+        -- isDCol __        = False
+        isDCol d = isDMap d || isDList d
+        isDMap (DMap _) = True
+        isDMap _        = False
+        isDList (DList _) = True
+        isDList _         = False
+        -- isDScalar d = (isDMap d) || (isDMap d)
 -- This adds game data to initial state
 -- Errors are reported via Either but not error
 gameStart :: State -> Document -> Either String State

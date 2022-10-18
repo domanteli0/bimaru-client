@@ -15,6 +15,10 @@ Steps:
 5. Run `stack build` to see if everything works
 6. Run `stack run -- $YOUR_TOKEN` play a game
 
+NOTES:
+* To run lib2: `stack run bimaru-client-2 -- $BIMARU_TOKEN`
+* To test: `stack test`
+
 Some other notes:
 - On Windows you might need to install "Msys2"
 - On Linux you might need to install "libtinfo-dev" and "zlib1g-dev"

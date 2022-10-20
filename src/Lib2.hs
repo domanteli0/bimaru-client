@@ -5,7 +5,7 @@ module Lib2(renderDocument, hint, gameStart) where
 
 import Types ( ToDocument(..), Document(..), Check )
 import Lib1 (State(..), render)
-import Data.Aeson (Value(Bool))
+import Data.Either
 
 -- IMPLEMENT
 -- First, make Check an instance of ToDocument class
@@ -46,11 +46,64 @@ renderDocument doc = renderDoc doc 0
         isDCol (DList _) = True
         isDCol (DMap _)  = True
         isDCol __        = False
-
+        
 -- This adds game data to initial state
 -- Errors are reported via Either but not error
 gameStart :: State -> Document -> Either String State
-gameStart (State ts hs c r h) d = Left "TODO: IMPLEMENT GAMESTART"
+gameStart _ doc = do
+    colNo <- case fromDMap doc of 
+        Left msg1 -> Left msg1
+        Right q1 -> case findDMap "occupied_cols" q1 of
+            Left msg2 -> Left msg2
+            Right q2 -> case fromDList q2 of
+                Left msg3 -> Left msg3
+                Right q3 -> case mapM fromDInteger q3 of
+                    Left msg4 -> Left msg4
+                    Right q4 -> Right q4
+                       
+    rowNo <- case fromDMap doc of 
+        Left msg1 -> Left msg1
+        Right q1 -> case findDMap "occupied_rows" q1 of
+            Left msg2 -> Left msg2
+            Right q2 -> case fromDList q2 of
+                Left msg3 -> Left msg3
+                Right q3 -> case mapM fromDInteger q3 of
+                    Left msg4 -> Left msg4
+                    Right q4 -> Right q4
+                
+    hintNo <- case fromDMap doc of
+        Left msg1 -> Left msg1
+        Right q1 -> case findDMap "number_of_hints" q1 of
+            Left msg2 -> Left msg2
+            Right q2 -> case fromDInteger q2 of
+                Left msg3 -> Left msg3
+                Right q3 -> Right q3
+
+    return $ State [] [] colNo rowNo hintNo
+
+findDMap :: String -> [(String, Document)] -> Either String Document
+findDMap key ((dKey, doc):xs) =   if dKey ==  key then Right doc else findDMap key xs
+findDMap _ _ = Left "Unable to find value with specified key"
+
+fromDMap :: Document -> Either String [(String, Document)]
+fromDMap (DMap m) = Right m
+fromDMap _ = Left "This Document is not a DMap"
+
+fromDList :: Document -> Either String [Document]
+fromDList (DList l) = Right l
+fromDList _ = Left "This Document is not a DList"
+
+fromDInteger :: Document -> Either String Int
+fromDInteger (DInteger i) = Right i
+fromDInteger _ = Left "This Document is not a DInteger"
+
+fromDString :: Document -> Either String String
+fromDString (DString i) = Right i
+fromDString _ = Left "This Document is not a DString"
+
+fromDNull :: Document -> Either String (Maybe a)
+fromDNull DNull = Right Nothing
+fromDNull _ = Left "This Document is not a DNull"
 
 -- IMPLEMENT
 -- Adds hint data to the game state

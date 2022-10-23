@@ -1,6 +1,7 @@
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Lib1 (State(..), emptyState)
 import Lib2 (renderDocument, gameStart, hint)
 import Types (Document(..))
 
@@ -72,7 +73,24 @@ toYamlTests = testGroup "Document to yaml"
   ]
 
 gameStartTests :: TestTree
-gameStartTests = testGroup "Test start document" []
+gameStartTests = testGroup "Test start document" [
+  testCase "DNull" $
+    gameStart emptyState (DNull) @?= Left "Document is not a DMap",
+  testCase "DString" $
+    gameStart emptyState (DString "labas") @?= Left "Document is not a DMap",
+  testCase "DInteger" $
+    gameStart emptyState (DInteger 7) @?= Left "Document is not a DMap",
+  testCase "DMap-Only-Hints" $
+    gameStart emptyState (DMap [("number_of_hints", DInteger 9)]) @?= Left "Unable to find value with specified key",
+  testCase "DMap-Only-Cols" $
+    gameStart emptyState (DMap [("occupied_columns", DInteger 3)]) @?= Left "Unable to find value with specified key",
+  testCase "DMap-Only-Rows" $
+    gameStart emptyState (DMap [("occupied_rows", DInteger 3)]) @?= Left "Unable to find value with specified key",
+  testCase "DMap-No-List" $
+    gameStart emptyState (DMap [("occupied_cols", DInteger 7), ("occupied_rows", DInteger 8), ("number_of_hints", DInteger 8)]) @?= Left "Document is not a DList",
+  testCase "DMap-One-Cols-Rows" $
+    gameStart emptyState (DMap [("occupied_cols", DList [DInteger 7]), ("occupied_rows", DList [DInteger 10]), ("number_of_hints", DInteger 7)]) @?= Left "Number of rows or cols != 10"
+  ]
 
 hintTests :: TestTree
-hintTests = testGroup "Test hint document" []
+hintTests = testGroup "Test hint" []

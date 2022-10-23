@@ -1,9 +1,10 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Lib2(renderDocument, hint, gameStart) where
 
-import Types ( ToDocument(..), Document(..), Check )
+import Types
 import Lib1 (State(..), render)
 import Data.Either
 
@@ -11,7 +12,21 @@ import Data.Either
 -- First, make Check an instance of ToDocument class
 instance ToDocument Check where
     toDocument :: Check -> Document
-    toDocument c = DNull
+    toDocument a = docListToDoc $ deconstructListOfCoord $ checkToList a
+
+checkToList :: Check -> [Coord]
+checkToList (Check a) = a
+
+docListToDoc :: [Document] -> Document
+docListToDoc = DList
+
+--Turns Check into [Document]
+deconstructListOfCoord :: [Coord] -> [Document]
+deconstructListOfCoord  = map deconstructCoord 
+
+--Takes coord and turn to Document
+deconstructCoord :: Coord -> Document
+deconstructCoord (Coord a b) = DList [DInteger a, DInteger b]
 
 -- Renders document to yaml
 renderDocument :: Document -> String

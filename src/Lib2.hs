@@ -5,7 +5,6 @@ module Lib2(renderDocument, hint, gameStart) where
 
 import Types ( ToDocument(..), Document(..), Check )
 import Lib1 (State(..), render)
-import Data.Either
 
 -- IMPLEMENT
 -- First, make Check an instance of ToDocument class
@@ -59,7 +58,9 @@ gameStart _ doc = do
                 Left msg3 -> Left msg3
                 Right q3 -> case mapM fromDInteger q3 of
                     Left msg4 -> Left msg4
-                    Right q4 -> Right q4
+                    Right q4 -> case checkLength q4 of
+                        Left msg5 -> Left msg5
+                        Right q5 -> Right q5
                        
     rowNo <- case fromDMap doc of 
         Left msg1 -> Left msg1
@@ -69,7 +70,9 @@ gameStart _ doc = do
                 Left msg3 -> Left msg3
                 Right q3 -> case mapM fromDInteger q3 of
                     Left msg4 -> Left msg4
-                    Right q4 -> Right q4
+                    Right q4 -> case checkLength q4 of
+                        Left msg5 -> Left msg5
+                        Right q5 -> Right q5
                 
     hintNo <- case fromDMap doc of
         Left msg1 -> Left msg1
@@ -80,6 +83,8 @@ gameStart _ doc = do
                 Right q3 -> Right q3
 
     return $ State [] [] colNo rowNo hintNo
+checkLength :: [Int] -> Either String [Int]
+checkLength list = if length list == 10 then Right list else Left "Number of rows or cols != 10"
 
 findDMap :: String -> [(String, Document)] -> Either String Document
 findDMap key ((dKey, doc):xs) =   if dKey ==  key then Right doc else findDMap key xs
@@ -87,23 +92,23 @@ findDMap _ _ = Left "Unable to find value with specified key"
 
 fromDMap :: Document -> Either String [(String, Document)]
 fromDMap (DMap m) = Right m
-fromDMap _ = Left "This Document is not a DMap"
+fromDMap _ = Left "Document is not a DMap"
 
 fromDList :: Document -> Either String [Document]
 fromDList (DList l) = Right l
-fromDList _ = Left "This Document is not a DList"
+fromDList _ = Left "Document is not a DList"
 
 fromDInteger :: Document -> Either String Int
 fromDInteger (DInteger i) = Right i
-fromDInteger _ = Left "This Document is not a DInteger"
+fromDInteger _ = Left "Document is not a DInteger"
 
 fromDString :: Document -> Either String String
 fromDString (DString i) = Right i
-fromDString _ = Left "This Document is not a DString"
+fromDString _ = Left "Document is not a DString"
 
 fromDNull :: Document -> Either String (Maybe a)
 fromDNull DNull = Right Nothing
-fromDNull _ = Left "This Document is not a DNull"
+fromDNull _ = Left "Document is not a DNull"
 
 -- IMPLEMENT
 -- Adds hint data to the game state

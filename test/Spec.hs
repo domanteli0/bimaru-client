@@ -1,6 +1,7 @@
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Lib1 (State(..))
 import Lib2 (renderDocument, gameStart, hint)
 import Types (Document(..))
 
@@ -75,4 +76,7 @@ gameStartTests :: TestTree
 gameStartTests = testGroup "Test start document" []
 
 hintTests :: TestTree
-hintTests = testGroup "Test hint document" []
+hintTests = testGroup "Test start document" [
+  testCase "DNull" $
+    gameStart (State [] [] [] [] 0) DNull @?= Left "This Document is not a DMap"
+  ]

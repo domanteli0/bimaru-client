@@ -17,7 +17,7 @@ type Toggled = Coord
 type ColNo = [Int]
 type RowNo = [Int]
 type HintNo = Int
-data State = State [Toggled] [Hinted] ColNo RowNo HintNo
+data State = State [Toggled] [Hinted] ColNo RowNo HintNo deriving Eq
 
 instance Show State where
     show (State ts hs c r h) = "Toggled: " ++ show ts ++ "\nHinted: " ++ show hs ++ "\nCol: " ++ show c ++ "\nRow: " ++ show r ++ "\nNo of hints: " ++ show h
@@ -26,7 +26,6 @@ instance Show State where
 -- This is very initial state of your program
 emptyState :: State
 emptyState = State [] [] [] [] 0
-
 -- IMPLEMENT
 -- This adds game data to initial state
 -- gameStart :: State -> Document -> State

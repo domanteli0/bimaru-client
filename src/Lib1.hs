@@ -84,11 +84,11 @@ render (State ts hs c r _) = concat mtrx'' ++ cols
     where
         cols = foldl (\acc colNr -> acc ++ show colNr ++ " " ) "" c
         mtr = zip r $ repeat ". . . . . . . . . . "
-        mtrx = map (\(r, str) -> str ++ show r ++ "\n") mtr
+        mtrx = map (\(rowNr, str) -> str ++ show rowNr ++ "\n") mtr
         mtrx' = addXH mtrx hs 'H'
         mtrx'' = addXH mtrx' ts 'X'
         addXH :: [[Char]] -> [Coord] -> Char -> [[Char]]
-        addXH m coords char = foldl (toggleHint char) m coords
+        addXH m cord char = foldl (toggleHint char) m cord
         toggleHint char mat (Coord x y) = matrixRepl mat (x*2) y char
 
 -- render (State ts hs c r h) = show

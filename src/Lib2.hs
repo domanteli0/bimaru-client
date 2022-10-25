@@ -5,7 +5,7 @@
 module Lib2(renderDocument, hint, gameStart) where
 
 import Types
-import Lib1 (State(..), render)
+import Lib1 (State(..))
 
 -- IMPLEMENT
 -- First, make Check an instance of ToDocument class

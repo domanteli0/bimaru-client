@@ -98,11 +98,11 @@ gameStartTests = testGroup "Test start document" [
 
 hintTests :: TestTree
 hintTests = testGroup "Test hint" [
-  testCase "1 Hints" $
-      hs (DMap [("coords",
-            DMap [("head",
-                DMap [("col", DInteger 8), ("row", DInteger 9)]), ("tail", DNull)])] ) []
+  -- testCase "1 Hints" $
+  --     hs (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)]),("tail",DNull)])]) []
                     
-    @?= Right [(Coord 8 9)]
+    testCase "1 Hint" $
+      hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)]),("tail",DNull)])])
+        @?= Right (State [] [(Coord 8 9)] [] [] 0)
                             
   ]

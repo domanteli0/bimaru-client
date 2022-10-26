@@ -75,7 +75,7 @@ toYamlTests = testGroup "Document to yaml"
 gameStartTests :: TestTree
 gameStartTests = testGroup "Test start document" [
   testCase "DNull" $
-    gameStart emptyState (DNull) @?= Left "Document is not a DMap",
+    gameStart emptyState DNull @?= Left "Document is not a DMap",
   testCase "DString" $
     gameStart emptyState (DString "labas") @?= Left "Document is not a DMap",
   testCase "DInteger" $
@@ -93,7 +93,16 @@ gameStartTests = testGroup "Test start document" [
   testCase "DMap-One-Col-Many-Rows" $
     gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8]), ("occupied_rows", DList [DInteger 9, DInteger 7]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
   testCase "DMap-Many-Cols-One-Row" $
-    gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 9]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10"
+    gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 9]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
+  testCase "Game-Start-Cols-1-Row" $
+    gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 9]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
+  testCase "Game-Start-Cols-Rows" $
+    gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Right (State [] [] [8,1,8,1,8,1,8,1,8,1] [8,1,8,1,8,1,8,1,8,1] 10),
+  testCase "Start-State-Not-Empty" $
+    gameStart (State [Coord 1 7] [Coord 8 9] [1, 2, 3] [1, 2, 3] 10) (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Right (State [] [] [8,1,8,1,8,1,8,1,8,1] [8,1,8,1,8,1,8,1,8,1] 10),
+  testCase "Too-Many-Cols-Rows" $
+    gameStart (State [Coord 1 7] [Coord 8 9] [1, 2, 3] [1, 2, 3] 10) (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10"
+    
   ]
 
 hintTests :: TestTree
@@ -103,6 +112,6 @@ hintTests = testGroup "Test hint" [
                     
     testCase "1 Hint" $
       hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)]),("tail",DNull)])])
-        @?= Right (State [] [(Coord 8 9)] [] [] 0)
+        @?= Right (State [] [Coord 8 9] [] [] 0)
                             
   ]

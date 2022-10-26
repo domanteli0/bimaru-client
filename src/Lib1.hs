@@ -17,10 +17,10 @@ type Toggled = Coord
 type ColNo = [Int]
 type RowNo = [Int]
 type HintNo = Int
-data State = State [Toggled] [Hinted] ColNo RowNo HintNo deriving Eq
+data State = State [Toggled] [Hinted] ColNo RowNo HintNo deriving (Eq, Show)
 
-instance Show State where
-    show (State ts hs c r h) = "Toggled: " ++ show ts ++ "\nHinted: " ++ show hs ++ "\nCol: " ++ show c ++ "\nRow: " ++ show r ++ "\nNo of hints: " ++ show h
+--instance Show State where
+ --   show (State ts hs c r h) = "Toggled: " ++ show ts ++ "\nHinted: " ++ show hs ++ "\nCol: " ++ show c ++ "\nRow: " ++ show r ++ "\nNo of hints: " ++ show h
 
 -- IMPLEMENT
 -- This is very initial state of your program

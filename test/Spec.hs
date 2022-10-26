@@ -58,7 +58,7 @@ toYamlTests = testGroup "Document to yaml"
             "    Lol: 'lol'"
           ]
     -- https://yaml-online-parser.appspot.com/?yaml=List%3A%0A++-+5%0A++-+6%0A++-%0A++++Lol%3A+%27lol%27%0A++++List%3A%0A++++++-+6%0A++++++-+9%0A++++++-+null&type=json
-    , testCase "map of lists of ints and maps and lists" $  -- TODO
+    , testCase "map of lists of ints and maps and lists" $
         renderDocument (DMap [("List", DList [DInteger 5, DInteger 6, DMap [("Lol", DString "lol"), ("List", DList [DInteger 6, DInteger 9, DNull])]])])
           @?= unlines [
             "List:",
@@ -98,11 +98,43 @@ gameStartTests = testGroup "Test start document" [
 
 hintTests :: TestTree
 hintTests = testGroup "Test hint" [
-  -- testCase "1 Hints" $
-  --     hs (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)]),("tail",DNull)])]) []
-                    
     testCase "1 Hint" $
       hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)]),("tail",DNull)])])
-        @?= Right (State [] [(Coord 8 9)] [] [] 0)
+        @?= Right (State [] [(Coord 8 9)] [] [] 0),
+    testCase "10 Hint" $
+      hint emptyState (DMap
+    [("coords",
+        DMap [("head",
+            DMap [("col", DInteger 8), ("row", DInteger 9)]), ("tail",
+                DMap [("head",
+                    DMap [("col", DInteger 7), ("row", DInteger 9)]), ("tail",
+                        DMap [("head",
+                            DMap [("col", DInteger 6), ("row", DInteger 9)]), ("tail",
+                                DMap [("head",
+                                    DMap [("col", DInteger 5), ("row", DInteger 9)]), ("tail",
+                                        DMap [("head",
+                                            DMap [("col", DInteger 5), ("row", DInteger 7)]), ("tail",
+                                                DMap [("head",
+                                                    DMap [("col", DInteger 5), ("row", DInteger 6)]), ("tail",
+                                                        DMap [("head",
+                                                            DMap [("col",DInteger 5), ("row",DInteger 5)]), ("tail",
+                                                                DMap [("head",
+                                                                    DMap [("col", DInteger 3), ("row", DInteger 3)]), ("tail",
+                                                                        DMap [("head",
+                                                                            DMap [("col",DInteger 3), ("row",DInteger 2)]), ("tail",
+                                                                                DMap [("head",
+                                                                                    DMap [("col",DInteger 3),("row",DInteger 1)]),("tail",DNull)])])])])])])])])])])])
+    @?= Right (State [] [
+      (Coord 3 1), 
+      Coord 3 2,
+      Coord 3 3,
+      Coord 5 5,
+      Coord 5 6,
+      Coord 5 7,
+      Coord 5 9,
+      Coord 6 9,
+      Coord 7 9,
+      Coord 8 9
+      ] [] [] 0)
                             
   ]

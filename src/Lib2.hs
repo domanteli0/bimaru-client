@@ -21,7 +21,7 @@ docListToDoc = DList
 
 --Turns Check into [Document]
 deconstructListOfCoord :: [Coord] -> [Document]
-deconstructListOfCoord  = map deconstructCoord 
+deconstructListOfCoord  = map deconstructCoord
 
 --Takes coord and turn to Document
 deconstructCoord :: Coord -> Document
@@ -60,12 +60,12 @@ renderDocument doc = renderDoc doc 0
         isDCol (DList _) = True
         isDCol (DMap _)  = True
         isDCol __        = False
-        
+
 -- This adds game data to initial state
 -- Errors are reported via Either but not error
 gameStart :: State -> Document -> Either String State
 gameStart _ doc = do
-    colNo <- case fromDMap doc of 
+    colNo <- case fromDMap doc of
         Left msg1 -> Left msg1
         Right q1 -> case findDMap "occupied_cols" q1 of
             Left msg2 -> Left msg2
@@ -76,8 +76,8 @@ gameStart _ doc = do
                     Right q4 -> case checkLength q4 of
                         Left msg5 -> Left msg5
                         Right q5 -> Right q5
-                       
-    rowNo <- case fromDMap doc of 
+
+    rowNo <- case fromDMap doc of
         Left msg1 -> Left msg1
         Right q1 -> case findDMap "occupied_rows" q1 of
             Left msg2 -> Left msg2
@@ -88,7 +88,7 @@ gameStart _ doc = do
                     Right q4 -> case checkLength q4 of
                         Left msg5 -> Left msg5
                         Right q5 -> Right q5
-                
+
     hintNo <- case fromDMap doc of
         Left msg1 -> Left msg1
         Right q1 -> case findDMap "number_of_hints" q1 of
@@ -98,6 +98,7 @@ gameStart _ doc = do
                 Right q3 -> Right q3
 
     return $ State [] [] colNo rowNo hintNo
+
 checkLength :: [Int] -> Either String [Int]
 checkLength list = if length list == 10 then Right list else Left "Number of rows or cols != 10"
 
@@ -125,8 +126,65 @@ fromDNull :: Document -> Either String (Maybe a)
 fromDNull DNull = Right Nothing
 fromDNull _ = Left "Document is not a DNull"
 
+isDNull :: Document -> Bool
+isDNull DNull = True
+isDNull _ = False
+
 -- IMPLEMENT
 -- Adds hint data to the game state
 -- Errors are reported via Either but not error
 hint :: State -> Document -> Either String State
-hint (State ts hs c r h) d = Left "TODO: IMPLEMENT HINT"
+hint (State ts _ c r h) hintDoc = do
+
+    coordDoc <- case fromDMap hintDoc of
+        Left msg1 -> Left msg1
+        Right q1 -> case findDMap "coords" q1 of
+            Left msg2 -> Left msg2
+            Right q2 -> Right q2
+
+    return $ State ts (hs coordDoc []) c r h
+
+hs :: Document -> [Coord] -> Either String [Coord]
+hs doc crds = do
+    -- if `tail` in the next document only has `DNull` then return the last coordinates
+    if isDNull nextDoc then  Coord getCol getRow : crds
+    -- else recursively parse other coordinates
+    else do
+        coordDoc' <- case fromDMap doc of
+            Left msg1 -> Left msg1
+            Right q1 -> case findDMap "head" q1 of
+                Left msg2 -> Left msg2
+                Right q2 -> case fromDMap q2 of
+                    Left msg3 -> Left msg3
+                    Right q3 -> Right q3
+
+        -- nextDoc = findDMap "tail" (fromDMap doc)
+        nextDoc <- case fromDMap doc of
+            Left msg1 -> Left msg1
+            Right q1 -> case findDMap "tail" q1 of
+                Left msg2 -> Left msg2
+                Right q2 -> Right q2
+
+        -- getCol = numFromDoc coordDoc' "col"
+        getCol <- case numFromDoc coordDoc' "col" of
+            Left msg1 -> Left msg1
+            Right q1 -> Right q1
+
+        -- getRow = numFromDoc coordDoc' "row"
+        getRow <- case numFromDoc coordDoc' "row" of
+            Left msg1 -> Left msg1
+            Right q1 -> Right q1
+
+        return $ hs nextDoc $ Coord getCol getRow : crds
+
+
+numFromDoc :: [(String, Document)] -> String -> Either String Int
+-- numFromDoc doc_ str = fromDInteger $ findDMap str doc_
+numFromDoc doc_ str = do
+    case findDMap str doc_ of
+        Left msg1 -> Left msg1
+        Right q1 -> case fromDInteger q1 of
+            Left msg2 -> Left msg2
+            Right q2 -> Right q2
+
+        

@@ -148,8 +148,7 @@ hint (State ts _ c r h) hintDoc = do
 
 hs :: Document -> [Coord] -> Either String [Coord]
 hs doc crds = do
-
-        -- nextDoc = findDMap "tail" (fromDMap doc)
+    -- nextDoc = findDMap "tail" (fromDMap doc)
     nextDoc <- case fromDMap doc of
         Left msg1 -> Left msg1
         Right q1 -> case findDMap "tail" q1 of
@@ -179,7 +178,7 @@ hs doc crds = do
             Left msg2 -> Left msg2
             Right q2 -> Right q2
 
-    let temp = (Coord getCol getRow : crds)
+    let temp = Coord getCol getRow : crds
 
     -- if `tail` in the next document only has `DNull` then return the last coordinates
     if isDNull nextDoc then Right temp

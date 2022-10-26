@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Lib2(renderDocument, hint, gameStart) where
+module Lib2(renderDocument, hint, gameStart, hs) where
 
 import Types
 import Lib1 (State(..))
@@ -142,49 +142,51 @@ hint (State ts _ c r h) hintDoc = do
             Left msg2 -> Left msg2
             Right q2 -> Right q2
 
-    return $ State ts (hs coordDoc []) c r h
+    temp <- hs coordDoc []
+
+    return $ State ts temp c r h
 
 hs :: Document -> [Coord] -> Either String [Coord]
 hs doc crds = do
-    -- if `tail` in the next document only has `DNull` then return the last coordinates
-    if isDNull nextDoc then  Coord getCol getRow : crds
-    -- else recursively parse other coordinates
-    else do
-        coordDoc' <- case fromDMap doc of
-            Left msg1 -> Left msg1
-            Right q1 -> case findDMap "head" q1 of
-                Left msg2 -> Left msg2
-                Right q2 -> case fromDMap q2 of
-                    Left msg3 -> Left msg3
-                    Right q3 -> Right q3
 
         -- nextDoc = findDMap "tail" (fromDMap doc)
-        nextDoc <- case fromDMap doc of
-            Left msg1 -> Left msg1
-            Right q1 -> case findDMap "tail" q1 of
-                Left msg2 -> Left msg2
-                Right q2 -> Right q2
+    nextDoc <- case fromDMap doc of
+        Left msg1 -> Left msg1
+        Right q1 -> case findDMap "tail" q1 of
+            Left msg2 -> Left msg2
+            Right q2 -> Right q2
 
-        -- getCol = numFromDoc coordDoc' "col"
-        getCol <- case numFromDoc coordDoc' "col" of
-            Left msg1 -> Left msg1
-            Right q1 -> Right q1
+    coordDoc' <- case fromDMap doc of
+        Left msg1 -> Left msg1
+        Right q1 -> case findDMap "head" q1 of
+            Left msg2 -> Left msg2
+            Right q2 -> case fromDMap q2 of
+                Left msg3 -> Left msg3
+                Right q3 -> Right q3
 
-        -- getRow = numFromDoc coordDoc' "row"
-        getRow <- case numFromDoc coordDoc' "row" of
-            Left msg1 -> Left msg1
-            Right q1 -> Right q1
-
-        return $ hs nextDoc $ Coord getCol getRow : crds
-
-
-numFromDoc :: [(String, Document)] -> String -> Either String Int
--- numFromDoc doc_ str = fromDInteger $ findDMap str doc_
-numFromDoc doc_ str = do
-    case findDMap str doc_ of
+    -- getCol = fromDInteger $ findDMap "col" coordDoc' 
+    getCol <- case findDMap "col" coordDoc' of
         Left msg1 -> Left msg1
         Right q1 -> case fromDInteger q1 of
             Left msg2 -> Left msg2
             Right q2 -> Right q2
+
+
+    -- getCol = fromDInteger $ findDMap "row" coordDoc' 
+    getRow <- case findDMap "row" coordDoc' of
+        Left msg1 -> Left msg1
+        Right q1 -> case fromDInteger q1 of
+            Left msg2 -> Left msg2
+            Right q2 -> Right q2
+
+    let temp = (Coord getCol getRow : crds)
+
+    -- if `tail` in the next document only has `DNull` then return the last coordinates
+    if isDNull nextDoc then Right temp
+    -- else recursively parse other coordinates
+    else do
+        hs nextDoc $ Coord getCol getRow : crds
+
+
 
         

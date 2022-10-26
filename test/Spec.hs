@@ -2,8 +2,8 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Lib1 (State(..), emptyState)
-import Lib2 (renderDocument, gameStart, hint)
-import Types (Document(..))
+import Lib2 (renderDocument, gameStart, hint, hs)
+import Types (Document(..), Coord(..))
 
 main :: IO ()
 main = defaultMain (testGroup "Tests" [
@@ -97,4 +97,12 @@ gameStartTests = testGroup "Test start document" [
   ]
 
 hintTests :: TestTree
-hintTests = testGroup "Test hint" []
+hintTests = testGroup "Test hint" [
+  testCase "1 Hints" $
+      hs (DMap [("coords",
+            DMap [("head",
+                DMap [("col", DInteger 8), ("row", DInteger 9)]), ("tail", DNull)])] ) []
+                    
+    @?= Right [(Coord 8 9)]
+                            
+  ]

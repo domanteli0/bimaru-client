@@ -144,6 +144,10 @@ hintTests = testGroup "Test hint" [
       Coord 6 9,
       Coord 7 9,
       Coord 8 9
-      ] [] [] 0)
+      ] [] [] 0),
+
+      testCase "5 Hint" $
+      hint emptyState (DMap [("coords",DMap [("head",DMap [("col", DInteger 5), ("row", DInteger 5)]), ("tail",DMap [("head",DMap [("col", DInteger 4), ("row", DInteger 4)]), ("tail",DMap [("head",DMap [("col", DInteger 3), ("row", DInteger 3)]), ("tail",DMap [("head",DMap [("col", DInteger 2), ("row", DInteger 2)]), ("tail",DMap [("head",DMap [("col", DInteger 1), ("row", DInteger 1)]), ("tail", DNull)])])])])])])
+      @?= Right (State [] [Coord 1 1, Coord 2 2, Coord 3 3, Coord 4 4, Coord 5 5] [] [] 0)
                             
   ]

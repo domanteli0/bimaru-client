@@ -179,7 +179,14 @@ hintTests = testGroup "Test hint" [
       hint emptyState (DMap [("coords",DMap [("tail",DNull)])]) @?= Left "Unable to find value with specified key",
 
       testCase "Cols-Rows-Are-DStrings" $
-      hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DString "lol"),("row",DString "pabandyk")]),("tail",DNull)])]) @?= Left "Document is not a DInteger"
+      hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DString "lol"),("row",DString "pabandyk")]),("tail",DNull)])]) @?= Left "Document is not a DInteger",
 
+      testCase "Hint-1-to-Hint-1" $
+      hint (State [] [Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail",DNull)])]) @?= Right (State [] [Coord 5 6] [] [] 0),
 
+      testCase "Hint-1-to-Hint-2" $
+      hint (State [] [Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail", DMap [("head",DMap [("col", DInteger 7), ("row", DInteger 8)]), ("tail", DNull)])])]) @?= Right (State [] [Coord 7 8, Coord 5 6] [] [] 0),
+
+      testCase "Hint-2-to-Hint-1" $
+      hint (State [] [Coord 7 8, Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail",DNull)])]) @?=Right (State [] [Coord 5 6] [] [] 0)
   ]

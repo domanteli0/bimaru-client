@@ -35,6 +35,7 @@ renderDocument doc = renderDoc doc 0
         renderDoc DNull _ = "null\n"
         renderDoc (DString s) _ = '\'' : s ++ "'\n"
         renderDoc (DInteger i) _ = show i ++ "\n"
+        renderDoc (DList []) level = l level ++ "[]\n"
         renderDoc (DList ls) level = do
             foldl func  "" ls
                 where
@@ -42,6 +43,7 @@ renderDocument doc = renderDoc doc 0
                         l level ++
                         listStr d ++
                         renderDoc d (level + 1)
+        renderDoc (DMap []) level = l level ++ "{}\n"
         renderDoc (DMap m) level = do
             foldl func "" m
                 where

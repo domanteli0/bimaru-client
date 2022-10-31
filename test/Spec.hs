@@ -84,9 +84,11 @@ toYamlTests = testGroup "Document to yaml"
           "        -",
           "          '': null",
           "        -",
+          "          {}",
           "      key4: ''",
           "    - null",
-          "key5:"
+          "key5:",
+          "  []"
           ]
   ]
 

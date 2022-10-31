@@ -70,6 +70,24 @@ toYamlTests = testGroup "Document to yaml"
             "      - 9",
             "      - null"
           ]
+    , testCase "TrickySpooky Halloween-Themed" $
+        renderDocument (DMap [("key1", DMap [("key2", DList [DInteger 1,DMap [("key3", DList [DInteger 1,DInteger 3,DNull,DMap [("", DNull)],DMap []]),("key4", DString "")],DNull])]),("key5", DList [])]) 
+        @?= unlines [
+          "key1:",
+          "  key2:",
+          "    - 1",
+          "    -",
+          "      key3:",
+          "        - 1",
+          "        - 3",
+          "        - null",
+          "        -",
+          "          '': null",
+          "        -",
+          "      key4: ''",
+          "    - null",
+          "key5:"
+          ]
   ]
 
 gameStartTests :: TestTree

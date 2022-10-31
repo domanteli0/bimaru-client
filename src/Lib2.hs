@@ -42,15 +42,19 @@ renderDocument doc = renderDoc doc 0
                         l level ++
                         listStr d ++
                         renderDoc d (level + 1)
-
         renderDoc (DMap m) level = do
             foldl func "" m
                 where
                     func :: String -> (String, Document) -> String
-                    func acc tup = acc ++
+                    func acc ("", doc1) = acc ++
                         l level ++
-                        fst tup ++ mapStr (snd tup) ++
-                        renderDoc (snd tup) (level + 1)
+                        "''" ++ mapStr doc1 ++
+                        renderDoc doc1 (level + 1)
+                    func acc (sstring, doc1) = acc ++
+                        l level ++
+                        sstring ++ mapStr doc1 ++
+                        renderDoc doc1 (level + 1)
+                    
 
         l ind = concat (replicate (2 * ind) " ")
 

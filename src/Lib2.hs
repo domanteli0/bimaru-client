@@ -11,25 +11,24 @@ import Lib1 (State(..))
 -- First, make Check an instance of ToDocument class
 instance ToDocument Check where
     toDocument :: Check -> Document
-    toDocument a = docListToDoc $ deconstructListOfCoord $ checkToList a
+    toDocument a = DMap [("coords", docListToDoc $ deconstructListOfCoord $ checkToList a)]
+        where
+            checkToList :: Check -> [Coord]
+            checkToList (Check c) = c
 
-checkToList :: Check -> [Coord]
-checkToList (Check a) = a
+            docListToDoc :: [Document] -> Document
+            docListToDoc = DList
 
-docListToDoc :: [Document] -> Document
-docListToDoc = DList
+            deconstructListOfCoord :: [Coord] -> [Document]
+            deconstructListOfCoord  = map deconstructCoord
 
---Turns Check into [Document]
-deconstructListOfCoord :: [Coord] -> [Document]
-deconstructListOfCoord  = map deconstructCoord
-
---Takes coord and turn to Document
-deconstructCoord :: Coord -> Document
-deconstructCoord (Coord a b) = DList [DInteger a, DInteger b]
+            deconstructCoord :: Coord -> Document
+            deconstructCoord (Coord c r) = DMap [("col", DInteger c), ("row", DInteger r)]
 
 -- Renders document to yaml
 renderDocument :: Document -> String
 renderDocument doc = renderDoc doc 0
+-- renderDocument doc = "---\n" ++ renderDoc doc 0
     where
         renderDoc :: Document -> Int -> String
         renderDoc DNull _ = "null\n"
@@ -56,7 +55,6 @@ renderDocument doc = renderDoc doc 0
                         l level ++
                         sstring ++ mapStr doc1 ++
                         renderDoc doc1 (level + 1)
-                    
 
         l ind = concat (replicate (2 * ind) " ")
 

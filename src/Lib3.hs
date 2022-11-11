@@ -79,6 +79,8 @@ tokenize str
                     in (striped'', drop 1 left')
             
             -- functions for scalars
+            -- TODO: tokenize by char till `tokenize` pattern matches with other branch
+            -- currently this is wrong behaviour
             getScalar :: String -> (Token, String)
             getScalar str' = do
                 let (retSca, retStr) = span (=='\n') str'

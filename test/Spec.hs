@@ -3,7 +3,7 @@ import Test.Tasty.HUnit
 
 import Lib1 (State(..), emptyState)
 import Lib2 (renderDocument, gameStart, hint)
-import Lib3 (parseDocument)
+import Lib3 (parseDocument, tokenizeDocument, Token(..))
 import Types (Document(..), Coord(..))
 
 main :: IO ()
@@ -11,12 +11,26 @@ main = defaultMain (testGroup "Tests" [
   toYamlTests,
   fromYamlTests,
   gameStartTests,
-  hintTests])
+  hintTests,
+  tokenizeDocumentTests])
 
 fromYamlTests :: TestTree
 fromYamlTests = testGroup "Document from yaml"
-  [   testCase "null" $
-        parseDocument "null" @?= Right DNull
+  [     testCase "null (null)" $
+          parseDocument "null" @?= Right DNull
+      , testCase "null (~)" $
+          parseDocument "~" @?= Right DNull
+      , testCase "null ()" $
+          parseDocument "" @?= Right DNull
+      , testCase "integer" $
+          parseDocument "56" @?= Right (DInteger 56)
+      , testCase "integer" $
+          parseDocument "420" @?= Right (DInteger 420)
+      , testCase "string with \"" $
+          parseDocument "\"foobar\"" @?= Right (DString "foobar")
+        -- string is complicated
+      , testCase "string with '" $
+          parseDocument "'foobar'" @?= Right (DString "foobar")
     -- IMPLEMENT more test cases:
     -- * other primitive types/values
     -- * nested types
@@ -220,4 +234,26 @@ hintTests = testGroup "Test hint" [
 
       testCase "Hint-2-to-Hint-1" $
       hint (State [] [Coord 7 8, Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail",DNull)])]) @?=Right (State [] [Coord 5 6] [] [] 0)
+  ]
+
+tokenizeDocumentTests :: TestTree
+tokenizeDocumentTests = testGroup "Test `tokenizeDocument`" [
+  testCase "TODO: Test case name" $
+  -- init is needed because unlines produces an additional newline
+  tokenizeDocument (init $ unlines [
+      "- \"test",
+      " test \\\"",
+      "",
+      "- \"",
+      "- ",
+      "  - \"test\""
+    ]) @?= [
+      TokenDashListItem,
+      TokenString "test\n test \\\"\n\n- ",
+      TokenDashListItem,
+      TokenNewLine,
+      TokenSpace 2,
+      TokenDashListItem,
+      TokenString "test"
+    ]
   ]

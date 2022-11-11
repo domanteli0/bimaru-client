@@ -1,0 +1,49 @@
+-- {-# OPTIONS_GHC -Wno-unused-top-binds #-}
+-- {-# OPTIONS_GHC -fno-warn-orphans #-}
+-- module YamlParser(parseDocument) where
+
+-- import Types ( Document(..), fromDocument)
+-- import Data.Either
+-- import Text.Read
+-- import Data.List.Split
+
+-- -- IMPLEMENT
+-- -- Parses a document from yaml
+-- parseDocument :: String -> Either String Document
+-- parseDocument str = do
+--     let lines' = splitOn "\n" str
+--     ors parsers "" str
+
+-- parseNull :: String -> Either String Document
+-- parseNull "" = Right DNull
+-- parseNull "null" = Right DNull
+-- parseNull "~" = Right DNull
+-- parseNull _ = Left ""
+
+-- parseInt :: String -> Either String Document
+-- parseInt str = do
+--     val <- readEither str
+--     return $ DInteger val
+
+-- -- parseDashList :: String -> Either String Document
+-- -- parseDashList str
+-- --     | isPrefixOf "- " str = ors 
+-- --     | otherwise Left "Not a list"
+--     -- -- Right DNull
+--     -- case str of 
+--     --     "- " -> Right DNull
+--     --     -- isPrefixOf "- " str -> ors parsers (tail $ tail str)
+
+
+-- parsers :: [String -> Either String Document]
+-- parsers = [parseNull, parseInt]
+
+-- ors :: [from -> Either l r] -> l -> from -> Either l r  
+-- ors funcs failMsg el  = do
+--     let eithers = map (\f -> f el) funcs
+--     -- firstRight :: [Either l r] -> l -> Either l r
+--     firstRight eithers failMsg
+--         where
+--             firstRight :: [Either l r] -> l -> Either l r
+--             firstRight (x:xs) msg = if isRight x then x else firstRight xs msg
+--             firstRight _ msg = Left msg

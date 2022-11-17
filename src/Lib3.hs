@@ -132,41 +132,16 @@ parseDocument str = do
 -- IMPLEMENT
 -- Change right hand side as you wish
 -- You will have to create an instance of FromDocument
+comb :: Either String a -> (a -> Either String b) -> Either String b
+comb (Left msg) _ = Left msg
+comb (Right q) foo = foo q
+
 data GameStart = GameStart ColNo RowNo HintNo
 instance FromDocument GameStart where
     fromDocument  doc = do
-        colNo <- case fromDMap doc of
-            Left msg1 -> Left msg1
-            Right q1 -> case findDMap "occupied_cols" q1 of
-                Left msg2 -> Left msg2
-                Right q2 -> case fromDList q2 of
-                    Left msg3 -> Left msg3
-                    Right q3 -> case mapM fromDInteger q3 of
-                        Left msg4 -> Left msg4
-                        Right q4 -> case checkLength q4 of
-                            Left msg5 -> Left msg5
-                            Right q5 -> Right q5
-
-        rowNo <- case fromDMap doc of
-            Left msg1 -> Left msg1
-            Right q1 -> case findDMap "occupied_rows" q1 of
-                Left msg2 -> Left msg2
-                Right q2 -> case fromDList q2 of
-                    Left msg3 -> Left msg3
-                    Right q3 -> case mapM fromDInteger q3 of
-                        Left msg4 -> Left msg4
-                        Right q4 -> case checkLength q4 of
-                            Left msg5 -> Left msg5
-                            Right q5 -> Right q5
-
-        hintNo <- case fromDMap doc of
-            Left msg1 -> Left msg1
-            Right q1 -> case findDMap "number_of_hints" q1 of
-                Left msg2 -> Left msg2
-                Right q2 -> case fromDInteger q2 of
-                    Left msg3 -> Left msg3
-                    Right q3 -> Right q3
-
+        colNo <- fromDMap doc `comb` findDMap "occupied_cols" `comb` fromDList `comb` mapM fromDInteger `comb` checkLength
+        rowNo <- fromDMap doc `comb` findDMap "occupied_rows" `comb` fromDList `comb` mapM fromDInteger `comb` checkLength
+        hintNo <- fromDMap doc `comb` findDMap "number_of_hints" `comb` fromDInteger
         return $ GameStart colNo rowNo hintNo
 
 checkLength :: [Int] -> Either String [Int]

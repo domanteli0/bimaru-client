@@ -6,8 +6,9 @@ import Data.Yaml as Y ( encode )
 
 import Lib1 (State(..), emptyState)
 import Lib2 (renderDocument, gameStart, hint)
-import Lib3 (parseDocument, tokenizeDocument, Token(..))
+import Lib3 (parseDocument, tokenizeYaml, Token(..))
 import Types (Document(..), Coord(..))
+import Test.Tasty.Runners (TestTree(TestGroup))
 
 main :: IO ()
 main = defaultMain (testGroup "Tests" [
@@ -15,7 +16,8 @@ main = defaultMain (testGroup "Tests" [
   fromYamlTests,
   gameStartTests,
   hintTests,
-  tokenizeDocumentTests,
+  tokenizeYamlTests,
+  parseDocumentTests,
   properties])
 
 properties :: TestTree
@@ -30,9 +32,43 @@ golden = testGroup "Handles foreign rendering"
 
 dogfood :: TestTree
 dogfood = testGroup "Eating your own dogfood"
-  [  
+  [
     testProperty "parseDocument (renderDocument doc) == doc" $
       \doc -> parseDocument (renderDocument doc) == Right doc
+  ]
+
+
+tokenizeYamlTests :: TestTree
+tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
+  testCase "TODO: Test case name" $
+    -- init is needed because unlines produces an additional newline
+    tokenizeYaml (init $ unlines [
+        "- \"test",
+        " test \\\"",
+        "",
+        "- \"",
+        "- ",
+        "  - \"test\""
+      ]) @?= [
+        TokenDashListItem,
+        TokenString "test\n test \\\"\n\n- ",
+        TokenDashListItem,
+        TokenNewLine,
+        TokenSpace 2,
+        TokenDashListItem,
+        TokenString "test"
+      ],
+  testCase "joinUnknown" $
+    tokenizeYaml (init (unlines [
+        "- \"test\"",
+        "- asd"
+      ])) @?= [
+        TokenDashListItem,
+        TokenString "test",
+        TokenNewLine,
+        TokenDashListItem,
+        TokenScalar "asd"
+      ]
   ]
 
 fromYamlTests :: TestTree
@@ -49,9 +85,18 @@ fromYamlTests = testGroup "Document from yaml"
           parseDocument "420" @?= Right (DInteger 420)
       , testCase "string with \"" $
           parseDocument "\"foobar\"" @?= Right (DString "foobar")
-        -- string is complicated
       , testCase "string with '" $
           parseDocument "'foobar'" @?= Right (DString "foobar")
+      , testCase "Simple list" $ unlines [
+          "- asd",
+          "-",
+          "  - lol",
+          "- nice",
+          "- "
+        ] @?= DList [DString "asd", DInteger 5, DList [DString "lol"], DString "nice", DNull]
+      , testCase "Simple map" $ unlines [
+          "key0: value0"
+        ] @?= ()
     -- IMPLEMENT more test cases:
     -- * other primitive types/values
     -- * nested types
@@ -117,7 +162,7 @@ toYamlTests = testGroup "Document to yaml"
             "      - null"
           ]
     , testCase "TrickySpooky Halloween-Themed" $
-        renderDocument (DMap [("key1", DMap [("key2", DList [DInteger 1,DMap [("key3", DList [DInteger 1,DInteger 3,DNull,DMap [("", DNull)],DMap []]),("key4", DString "")],DNull])]),("key5", DList [])]) 
+        renderDocument (DMap [("key1", DMap [("key2", DList [DInteger 1,DMap [("key3", DList [DInteger 1,DInteger 3,DNull,DMap [("", DNull)],DMap []]),("key4", DString "")],DNull])]),("key5", DList [])])
         @?= unlines [
           "key1:",
           "  key2:",
@@ -168,7 +213,7 @@ gameStartTests = testGroup "Test start document" [
     gameStart (State [Coord 1 7] [Coord 8 9] [1, 2, 3] [1, 2, 3] 10) (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Right (State [] [] [8,1,8,1,8,1,8,1,8,1] [8,1,8,1,8,1,8,1,8,1] 10),
   testCase "Too-Many-Cols-Rows" $
     gameStart (State [Coord 1 7] [Coord 8 9] [1, 2, 3] [1, 2, 3] 10) (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10"
-    
+
   ]
 
 hintTests :: TestTree
@@ -200,7 +245,7 @@ hintTests = testGroup "Test hint" [
                                                                                 DMap [("head",
                                                                                     DMap [("col",DInteger 3),("row",DInteger 1)]),("tail",DNull)])])])])])])])])])])])
     @?= Right (State [] [
-      Coord 3 1, 
+      Coord 3 1,
       Coord 3 2,
       Coord 3 3,
       Coord 5 5,
@@ -228,7 +273,7 @@ hintTests = testGroup "Test hint" [
         Coord 4 4,
         Coord 5 5
         ] [] [] 0),
-      
+
       testCase "No-DMap" $
       hint emptyState DNull @?= Left "Document is not a DMap",
 
@@ -255,26 +300,4 @@ hintTests = testGroup "Test hint" [
 
       testCase "Hint-2-to-Hint-1" $
       hint (State [] [Coord 7 8, Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail",DNull)])]) @?=Right (State [] [Coord 5 6] [] [] 0)
-  ]
-
-tokenizeDocumentTests :: TestTree
-tokenizeDocumentTests = testGroup "Test `tokenizeDocument`" [
-  testCase "TODO: Test case name" $
-  -- init is needed because unlines produces an additional newline
-  tokenizeDocument (init $ unlines [
-      "- \"test",
-      " test \\\"",
-      "",
-      "- \"",
-      "- ",
-      "  - \"test\""
-    ]) @?= [
-      TokenDashListItem,
-      TokenString "test\n test \\\"\n\n- ",
-      TokenDashListItem,
-      TokenNewLine,
-      TokenSpace 2,
-      TokenDashListItem,
-      TokenString "test"
-    ]
   ]

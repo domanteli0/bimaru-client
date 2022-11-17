@@ -2,9 +2,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
+{-# HLINT ignore "Use null" #-}
 
--- TODO: move `tokenizeDocument`, `Token` to an internal module
-module Lib3(hint, gameStart, parseDocument, tokenizeDocument, Token(..), GameStart, Hint) where
+-- TODO: move `tokenizeYaml`, `Token` to an internal module
+module Lib3(hint, gameStart, parseDocument, tokenizeYaml, Token(..), GameStart, Hint) where
 
 import Types ( Document(..), FromDocument, fromDocument )
 import Lib1 (State(..))
@@ -16,9 +17,9 @@ type HintNo = Int
 
 -- YamlToken is purposefully not recursive
 data Token =
-      TokenNull
+      TokenUnknown Char
     | TokenSpace Int
-    | TokenMaybeScalar String
+    | TokenScalar String
     -- ^ Any scalar type yet to be parsed
     -- NOTE: this still might be a string
     -- even though `TokenString` exists
@@ -37,31 +38,62 @@ data Token =
     | TokenNewLine
     deriving (Show, Eq)
 
-tokenizeDocument :: String -> [Token]
-tokenizeDocument "" = []
-tokenizeDocument str = do
-    let (token, left) = tokenize str
-    if left /= "" then
-        token : tokenizeDocument left
-    else
-        [token]
+tokenizeYaml :: String -> [Token]
+tokenizeYaml "" = []
+-- `scalarize` - some pairs of tokens will have to be turned into TokenScalar
+-- for example: [TokenScalar "a", TokenDashListItem, TokenScalar "b"]
+-- tokenizeYaml str = scalarize $ joinUnknown $ tokenizeYaml' str
+tokenizeYaml str = joinUnknown $ tokenizeYaml' str
+    where
+        tokenizeYaml' :: String -> [Token]
+        tokenizeYaml' "" = []
+        tokenizeYaml' str' =  do
+            let (tokens, left) = tokenize str'
+            if left /= "" then
+                tokens ++ tokenizeYaml' left
+            else
+                tokens
 
-tokenize :: String -> (Token, String)
+        joinUnknown :: [Token] -> [Token]
+        joinUnknown [] = []
+        joinUnknown tokens = do
+            let (ok, begin) = break isTokenUnknown tokens
+            let (unknownChars, left) = span isTokenUnknown begin
+            if unknownChars == [] then ok ++ joinUnknown left
+            else 
+                ok ++ TokenScalar (foldr func "" unknownChars ) : joinUnknown left
+
+        func :: Token -> String -> String
+        func t' acc = getUnknown t':acc
+            where
+                getUnknown :: Token -> Char
+                getUnknown (TokenUnknown c) = c
+                -- `unknownChars` is ensured to be a list of only TokenUnknown
+                -- thus `getUnknown` is called only to unpack the char inside TokenUnknown
+                getUnknown tkn =
+                    error $
+                        "This exception should never be thrown. Consider this a bug. `getUnknown` was called on:<" ++ show tkn ++ "> in"
+
+isTokenUnknown :: Token -> Bool
+isTokenUnknown (TokenUnknown _) = True
+isTokenUnknown _ = False
+
+tokenize :: String -> ([Token], String)
 tokenize str
-    | "null" `isPrefixOf` str = (TokenNull, drop 4 str)
-    | "~" `isPrefixOf` str = (TokenNull, drop 1 str)
-    | "- " `isPrefixOf` str = (TokenDashListItem, drop 2 str)
-    | "[" `isPrefixOf` str = (TokenBeginBracketList, drop 1 str)
-    | "]" `isPrefixOf` str = (TokenEndBracketList, drop 1 str)
-    | "{" `isPrefixOf` str = (TokenBeginMapping, drop 1 str)
-    | "}" `isPrefixOf` str = (TokenEndMapping, drop 1 str)
-    | "," `isPrefixOf` str = (TokenCollectionSep, drop 1 str)
-    | ":" `isPrefixOf` str = (TokenKeyColon, drop 1 str)
-    | "\"" `isPrefixOf` str = (TokenString $ fst stringQ, snd stringQ)
-    | "'" `isPrefixOf` str = (TokenString $ fst stringA, snd stringA)
-    | " " `isPrefixOf` str = (TokenSpace (length (fst spaced)), snd spaced)
-    | "\n" `isPrefixOf` str = (TokenNewLine, drop 1 str)
-    | otherwise = getScalar str
+    | "- " `isPrefixOf` str = ([TokenDashListItem], drop 2 str)
+    | "-\n" `isPrefixOf` str = ([TokenDashListItem, TokenNewLine], drop 2 str)
+    | "[" `isPrefixOf` str = ([TokenBeginBracketList], drop 1 str)
+    | "]" `isPrefixOf` str = ([TokenEndBracketList], drop 1 str)
+    | "{" `isPrefixOf` str = ([TokenBeginMapping], drop 1 str)
+    | "}" `isPrefixOf` str = ([TokenEndMapping], drop 1 str)
+    | "," `isPrefixOf` str = ([TokenCollectionSep], drop 1 str)
+    | ": " `isPrefixOf` str = ([TokenKeyColon], drop 2 str)
+    | ":\n" `isPrefixOf` str = ([TokenKeyColon, TokenNewLine], drop 2 str)
+    | "\"" `isPrefixOf` str = ([TokenString $ fst stringQ], snd stringQ)
+    | "'" `isPrefixOf` str = ([TokenString $ fst stringA], snd stringA)
+    | " " `isPrefixOf` str = ([TokenSpace (length (fst spaced))], snd spaced)
+    | "\n" `isPrefixOf` str = ([TokenNewLine], drop 1 str)
+    | otherwise = getUnknown str
         where
             -- functions for strings
             spaced = span (== ' ') str
@@ -81,19 +113,21 @@ tokenize str
                     let (striped', left') = getStr left char excl
                         striped'' = striped ++ [char] ++ striped'
                     in (striped'', drop 1 left')
-            
+
             -- functions for scalars
-            -- TODO: tokenize by char till `tokenize` pattern matches with other branch
-            -- currently this is wrong behaviour
-            getScalar :: String -> (Token, String)
-            getScalar str' = do
-                let (retSca, retStr) = span (=='\n') str'
-                (TokenMaybeScalar retSca, retStr)
+            getUnknown :: String -> ([Token], String)
+            getUnknown (c:str') = ([TokenUnknown c], str')
+            getUnknown "" = error "This should not happen"
 
 -- IMPLEMENT
 -- Parses a document from yaml
 parseDocument :: String -> Either String Document
-parseDocument str = Left "NOT IMPLEMENTED"
+parseDocument str = do 
+    let tokens = tokenizeYaml str
+
+    Left "NOT IMPLEMENTED"
+        where
+            parsers = []
 
 -- IMPLEMENT
 -- Change right hand side as you wish

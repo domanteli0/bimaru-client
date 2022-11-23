@@ -8,7 +8,7 @@ import Lib1 (State(..), emptyState)
 import Lib2 (renderDocument, gameStart, hint)
 import Lib3 (parseDocument, tokenizeYaml, Token(..))
 import Types (Document(..), Coord(..))
-import Test.Tasty.Runners (TestTree(TestGroup))
+-- import Test.Tasty.Runners (TestTree(TestGroup))
 
 main :: IO ()
 main = defaultMain (testGroup "Tests" [
@@ -17,7 +17,6 @@ main = defaultMain (testGroup "Tests" [
   gameStartTests,
   hintTests,
   tokenizeYamlTests,
-  parseDocumentTests,
   properties])
 
 properties :: TestTree
@@ -40,25 +39,7 @@ dogfood = testGroup "Eating your own dogfood"
 
 tokenizeYamlTests :: TestTree
 tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
-  testCase "TODO: Test case name" $
-    -- init is needed because unlines produces an additional newline
-    tokenizeYaml (init $ unlines [
-        "- \"test",
-        " test \\\"",
-        "",
-        "- \"",
-        "- ",
-        "  - \"test\""
-      ]) @?= [
-        TokenDashListItem,
-        TokenString "test\n test \\\"\n\n- ",
-        TokenDashListItem,
-        TokenNewLine,
-        TokenSpace 2,
-        TokenDashListItem,
-        TokenString "test"
-      ],
-  testCase "joinUnknown" $
+    testCase "joinUnknown" $
     tokenizeYaml (init (unlines [
         "- \"test\"",
         "- asd"
@@ -68,6 +49,50 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         TokenNewLine,
         TokenDashListItem,
         TokenScalar "asd"
+      ]
+  , testCase "joinBetweenScalar" $
+    tokenizeYaml "foo    bar: f o o o b a a r" @?= [
+      TokenScalar "foo    bar",
+      TokenKeyColon,
+      TokenScalar "f o o o b a a r"
+    ]
+  , testCase "TODO: Test case name" $
+    -- init is needed because unlines produces an additional newline
+      tokenizeYaml (init $ unlines [
+          "- \"test",
+          " test \\\"",
+          "",
+          "- \"",
+          "- ",
+          "  - \"test\""
+        ]) @?= [
+          TokenDashListItem,
+          TokenString "test\n test \\\"\n\n- ",
+          TokenDashListItem,
+          TokenNewLine,
+          TokenSpace 2,
+          TokenDashListItem,
+          TokenString "test"
+        ]
+    , testCase "Nested list" $ tokenizeYaml (unlines [
+        "List:",
+        "- 5",
+        "- 6",
+        "-",
+        "  Lol  asd: 'lol'",
+        "  List:",
+        "    - 6",
+        "    - 9",
+        "    - null"
+      ]) @?= [TokenScalar "List", TokenKeyColon, TokenNewLine, 
+        TokenDashListItem, TokenScalar "5", TokenNewLine,
+        TokenDashListItem, TokenScalar "6", TokenNewLine,
+        TokenDashListItem, TokenNewLine,
+        TokenSpace 2, TokenScalar "Lol  asd", TokenKeyColon, TokenString "lol", TokenNewLine,
+        TokenSpace 2, TokenScalar "List", TokenKeyColon, TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenScalar "6", TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenScalar "9", TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenScalar "null", TokenNewLine
       ]
   ]
 
@@ -87,16 +112,18 @@ fromYamlTests = testGroup "Document from yaml"
           parseDocument "\"foobar\"" @?= Right (DString "foobar")
       , testCase "string with '" $
           parseDocument "'foobar'" @?= Right (DString "foobar")
-      , testCase "Simple list" $ unlines [
+      , testCase "Simple list" $ parseDocument (unlines [
           "- asd",
           "-",
           "  - lol",
           "- nice",
           "- "
-        ] @?= DList [DString "asd", DInteger 5, DList [DString "lol"], DString "nice", DNull]
-      , testCase "Simple map" $ unlines [
-          "key0: value0"
-        ] @?= ()
+        ])
+          @?=
+            Right (DList [DString "asd", DInteger 5, DList [DString "lol"], DString "nice", DNull])
+      -- , testCase "Simple map" $ unlines [
+      --     "key0: value0"
+      --   ] @?= ()
     -- IMPLEMENT more test cases:
     -- * other primitive types/values
     -- * nested types

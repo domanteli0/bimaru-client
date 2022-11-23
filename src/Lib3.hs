@@ -10,10 +10,16 @@ module Lib3(hint, gameStart, parseDocument, tokenizeYaml, Token(..), GameStart, 
 import Types ( Document(..), FromDocument, fromDocument )
 import Lib1 (State(..))
 import Data.List ( isPrefixOf )
+import Data.Yaml.Parser (YamlValue(Scalar))
 
 type ColNo = [Int]
 type RowNo = [Int]
 type HintNo = Int
+
+-- - Raktai neturės "specialių" simbolių, o tik raides
+-- - Eilutės galimos tik raidės, skaitmenys ir tarpas
+-- - Eilutės maksimalus ilgis 16
+-- - Rakto maksimalus ilgis 10
 
 -- YamlToken is purposefully not recursive
 data Token =
@@ -40,10 +46,7 @@ data Token =
 
 tokenizeYaml :: String -> [Token]
 tokenizeYaml "" = []
--- `scalarize` - some pairs of tokens will have to be turned into TokenScalar
--- for example: [TokenScalar "a", TokenDashListItem, TokenScalar "b"]
--- tokenizeYaml str = scalarize $ joinUnknown $ tokenizeYaml' str
-tokenizeYaml str = joinUnknown $ tokenizeYaml' str
+tokenizeYaml str = joinBetweenScalar $ joinUnknown $ tokenizeYaml' str
     where
         tokenizeYaml' :: String -> [Token]
         tokenizeYaml' "" = []
@@ -60,7 +63,7 @@ tokenizeYaml str = joinUnknown $ tokenizeYaml' str
             let (ok, begin) = break isTokenUnknown tokens
             let (unknownChars, left) = span isTokenUnknown begin
             if unknownChars == [] then ok ++ joinUnknown left
-            else 
+            else
                 ok ++ TokenScalar (foldr func "" unknownChars ) : joinUnknown left
 
         func :: Token -> String -> String
@@ -74,9 +77,25 @@ tokenizeYaml str = joinUnknown $ tokenizeYaml' str
                     error $
                         "This exception should never be thrown. Consider this a bug. `getUnknown` was called on:<" ++ show tkn ++ "> in"
 
-isTokenUnknown :: Token -> Bool
-isTokenUnknown (TokenUnknown _) = True
-isTokenUnknown _ = False
+        joinBetweenScalar :: [Token] -> [Token]
+        joinBetweenScalar tokens = snd $ joinBetweenScalar' (tokens, [])
+            where
+                joinBetweenScalar' :: ([Token], [Token]) -> ([Token], [Token])
+                joinBetweenScalar' ([], ts) = ([], ts)
+                -- Join spaces
+                joinBetweenScalar'
+                    ((TokenScalar str1):(TokenSpace space):(TokenScalar str2):ts, ts')
+                        = joinBetweenScalar' (TokenScalar (str1 ++ spaceToStr space ++ str2) : ts, ts')
+                joinBetweenScalar' (t:ts, ts') = joinBetweenScalar' (ts, ts' ++ [t])
+
+        -- videoPath :: TmpFile Video -> FilePath
+        spaceToStr :: Int  -> String
+        spaceToStr space = replicate space ' '
+
+
+        isTokenUnknown :: Token -> Bool
+        isTokenUnknown (TokenUnknown _) = True
+        isTokenUnknown _ = False
 
 tokenize :: String -> ([Token], String)
 tokenize str
@@ -122,7 +141,7 @@ tokenize str
 -- IMPLEMENT
 -- Parses a document from yaml
 parseDocument :: String -> Either String Document
-parseDocument str = do 
+parseDocument str = do
     let tokens = tokenizeYaml str
 
     Left "NOT IMPLEMENTED"

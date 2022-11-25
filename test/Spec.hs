@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
@@ -45,16 +46,16 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "- asd"
       ])) @?= [
         TokenDashListItem,
-        TokenString "test",
+        TokenScalarString "test",
         TokenNewLine,
         TokenDashListItem,
-        TokenScalar "asd"
+        TokenScalarString "asd"
       ]
   , testCase "joinBetweenScalar" $
     tokenizeYaml "foo    bar: f o o o b a a r" @?= [
-      TokenScalar "foo    bar",
+      TokenScalarString "foo    bar",
       TokenKeyColon,
-      TokenScalar "f o o o b a a r"
+      TokenScalarString "f o o o b a a r"
     ]
   , testCase "TODO: Test case name" $
     -- init is needed because unlines produces an additional newline
@@ -67,12 +68,12 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
           "  - \"test\""
         ]) @?= [
           TokenDashListItem,
-          TokenString "test\n test \\\"\n\n- ",
+          TokenScalarString "test\n test \\\"\n\n- ",
           TokenDashListItem,
           TokenNewLine,
           TokenSpace 2,
           TokenDashListItem,
-          TokenString "test"
+          TokenScalarString "test"
         ]
     , testCase "Nested list" $ tokenizeYaml (unlines [
         "List:",
@@ -84,15 +85,15 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "    - 6",
         "    - 9",
         "    - null"
-      ]) @?= [TokenScalar "List", TokenKeyColon, TokenNewLine, 
-        TokenDashListItem, TokenScalar "5", TokenNewLine,
-        TokenDashListItem, TokenScalar "6", TokenNewLine,
+      ]) @?= [TokenScalarString "List", TokenKeyColon, TokenNewLine, 
+        TokenDashListItem, TokenScalarInt 5, TokenNewLine,
+        TokenDashListItem, TokenScalarInt 6, TokenNewLine,
         TokenDashListItem, TokenNewLine,
-        TokenSpace 2, TokenScalar "Lol  asd", TokenKeyColon, TokenString "lol", TokenNewLine,
-        TokenSpace 2, TokenScalar "List", TokenKeyColon, TokenNewLine,
-        TokenSpace 4, TokenDashListItem, TokenScalar "6", TokenNewLine,
-        TokenSpace 4, TokenDashListItem, TokenScalar "9", TokenNewLine,
-        TokenSpace 4, TokenDashListItem, TokenScalar "null", TokenNewLine
+        TokenSpace 2, TokenScalarString "Lol  asd", TokenKeyColon, TokenScalarString "lol", TokenNewLine,
+        TokenSpace 2, TokenScalarString "List", TokenKeyColon, TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenScalarInt 9, TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenScalarNull, TokenNewLine
       ]
   ]
 
@@ -112,6 +113,13 @@ fromYamlTests = testGroup "Document from yaml"
           parseDocument "\"foobar\"" @?= Right (DString "foobar")
       , testCase "string with '" $
           parseDocument "'foobar'" @?= Right (DString "foobar")
+      , testCase "List of one" $ parseDocument "- 5" @?= Right (DList [DInteger 5])
+      , testCase "Simple simple list" $ (parseDocument (unlines [
+          "- asd",
+          "- 1",
+          "- nice",
+          "- 2"
+        ])) @?= Right (DList [DString "asd", (DInteger 1), DString "nice", (DInteger 2)])
       , testCase "Simple list" $ parseDocument (unlines [
           "- asd",
           "-",
@@ -121,12 +129,17 @@ fromYamlTests = testGroup "Document from yaml"
         ])
           @?=
             Right (DList [DString "asd", DInteger 5, DList [DString "lol"], DString "nice", DNull])
-      -- , testCase "Simple map" $ unlines [
+        , testCase "Simple mapping" $ parseDocument (unlines [
+          "key1: value1",
+          "key2: value2",
+          "key3: value3"
+        ])
+          @?=
+            Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3"), ])
+      -- , testCase "Simple map" $ parseDocument (unlines [
       --     "key0: value0"
-      --   ] @?= ()
-    -- IMPLEMENT more test cases:
-    -- * other primitive types/values
-    -- * nested types
+      --   ]) @?= Right (DMap [("key0", DString "value0")])
+      -- , testCase "Keyless map" $ parseDocument (unlines [ ": value" ]) @?= (Left _)
   ]
 
 toYamlTests :: TestTree

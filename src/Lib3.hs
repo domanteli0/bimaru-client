@@ -7,6 +7,7 @@
 -- {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
+{-# HLINT ignore "Use newtype instead of data" #-}
 
 -- TODO: move `tokenizeYaml`, `Token` to an internal module
 module Lib3(hint, gameStart, parseDocument, tokenizeYaml, Token(..), GameStart, Hint) where
@@ -20,6 +21,7 @@ import Data.Maybe
 import Control.Applicative ( Alternative((<|>)) )
 import qualified Control.Monad.Trans.Error
 import Data.Monoid (Ap)
+import Text.XHtml (coords)
 
 type ColNo = [Int]
 type RowNo = [Int]
@@ -312,9 +314,26 @@ gameStart _ (GameStart colNo rowNo hintNo) = State [] [] colNo rowNo hintNo
 -- IMPLEMENT
 -- Change right hand side as you wish
 -- You will have to create an instance of FromDocument
-data Hint = Hint deriving Show
+data Hint = Hint [Hinted]
 instance FromDocument Hint where
-    fromDocument _ = error "NOT IMPLEMENTED"
+    fromDocument doc = do
+        coordDoc <- fromDMap doc >>= findDMap "coords"
+        hs coordDoc [] >>= checkHintLength
+
+hs :: Document -> [Coord] -> Either String [Coord]
+hs doc crds = do
+    nextDoc <- fromDMap doc >>= findDmap "tail"
+    coordDoc' <- fromDMap doc >>= findDMap "head" >>= fromDMap
+    getCol <- findDmap "col" coordDoc' >>= fromDInteger
+    getRow <- findDMap "row" coordDoc' >>= fromDInteger
+    let temp = Coord getCol getRow : crds
+    if isDNull nextDoc then temp
+    else do
+        hs nextDoc $ Coord getCol getRow : crds
+
+checkHintLength :: [Hinted] -> Either String [Int]
+checkHintLength list = if length list <= 10 then Right list else Left "Incorrect Number of Hints"
+
 
 -- Adds hint data to the game state
 -- Errors are not reported since GameStart is already totally valid adt

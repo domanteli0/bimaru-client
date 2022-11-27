@@ -318,7 +318,8 @@ data Hint = Hint [Hinted]
 instance FromDocument Hint where
     fromDocument doc = do
         coordDoc <- fromDMap doc >>= findDMap "coords"
-        hs coordDoc [] >>= checkHintLength
+        temp <- hs coordDoc [] >>= checkHintLength
+        return Hint temp
 
 hs :: Document -> [Coord] -> Either String [Coord]
 hs doc crds = do
@@ -327,7 +328,7 @@ hs doc crds = do
     getCol <- findDmap "col" coordDoc' >>= fromDInteger
     getRow <- findDMap "row" coordDoc' >>= fromDInteger
     let temp = Coord getCol getRow : crds
-    if isDNull nextDoc then return temp
+    if isDNull nextDoc then Right temp
     else do
         hs nextDoc $ Coord getCol getRow : crds
 
@@ -339,5 +340,5 @@ checkHintLength list = if length list <= 10 then Right list else Left "Incorrect
 -- Errors are not reported since GameStart is already totally valid adt
 -- containing all fields needed
 hint :: State -> Hint -> State
-hint s _ = s
+hint (State [Toggled] _ colNo rowNo hintNo) (Hint [Hinted]) = State [Toggled] [Hinted] colNo rowNo hintNo
 -- hint (State l) h = State $ ("Hint " ++ show h) : l

@@ -100,10 +100,8 @@ hs doc crds = do
 checkHintLength :: [Hinted] -> Either String [Hinted]
 checkHintLength list = if length list <= 10 then Right list else Left "Incorrect Number of Hints"
 
-
 -- Adds hint data to the game state
 -- Errors are not reported since GameStart is already totally valid adt
 -- containing all fields needed
 hint :: State -> Hint -> State
-hint (State ts _ colNo rowNo hintNo) (Hint hs) = State ts hs colNo rowNo hintNo
--- hint (State l) h = State $ ("Hint " ++ show h) : l
+hint (State ts _ colNo rowNo hintNo) (Hint hs') = State ts hs' colNo rowNo hintNo

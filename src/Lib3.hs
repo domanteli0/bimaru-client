@@ -327,7 +327,7 @@ hs doc crds = do
     getCol <- findDmap "col" coordDoc' >>= fromDInteger
     getRow <- findDMap "row" coordDoc' >>= fromDInteger
     let temp = Coord getCol getRow : crds
-    if isDNull nextDoc then temp
+    if isDNull nextDoc then return temp
     else do
         hs nextDoc $ Coord getCol getRow : crds
 

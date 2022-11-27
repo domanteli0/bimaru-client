@@ -5,9 +5,11 @@
 module Lib3(hint, gameStart, parseDocument, tokenizeYaml, Token, GameStart, Hint) where
 
 import Parser(Token, parseTokens, tokenizeYaml)
-import Types ( Document(..), FromDocument, fromDocument)
+import Types ( FromDocument(..), Document(..), Coord(Coord) )
 import Lib1 (State(..))
 
+type Hinted = Coord
+type Toggled = Coord
 type ColNo = [Int]
 type RowNo = [Int]
 type HintNo = Int
@@ -77,13 +79,31 @@ gameStart _ (GameStart colNo rowNo hintNo) = State [] [] colNo rowNo hintNo
 -- IMPLEMENT
 -- Change right hand side as you wish
 -- You will have to create an instance of FromDocument
-data Hint = Hint deriving Show
+data Hint = Hint [Hinted]
 instance FromDocument Hint where
-    fromDocument _ = error "NOT IMPLEMENTED"
+    fromDocument doc = do
+        coordDoc <- fromDMap doc >>= findDMap "coords"
+        temp <- hs coordDoc [] >>= checkHintLength
+        return $ Hint temp
+
+hs :: Document -> [Coord] -> Either String [Coord]
+hs doc crds = do
+    nextDoc <- fromDMap doc >>= findDMap "tail"
+    coordDoc' <- fromDMap doc >>= findDMap "head" >>= fromDMap
+    getCol <- findDMap "col" coordDoc' >>= fromDInteger
+    getRow <- findDMap "row" coordDoc' >>= fromDInteger
+    let temp = Coord getCol getRow : crds
+    if isDNull nextDoc then Right temp
+    else do
+        hs nextDoc $ Coord getCol getRow : crds
+
+checkHintLength :: [Hinted] -> Either String [Hinted]
+checkHintLength list = if length list <= 10 then Right list else Left "Incorrect Number of Hints"
+
 
 -- Adds hint data to the game state
 -- Errors are not reported since GameStart is already totally valid adt
 -- containing all fields needed
 hint :: State -> Hint -> State
-hint s _ = s
+hint (State ts _ colNo rowNo hintNo) (Hint hs) = State ts hs colNo rowNo hintNo
 -- hint (State l) h = State $ ("Hint " ++ show h) : l

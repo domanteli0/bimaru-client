@@ -12,7 +12,7 @@
 -- TODO: move `tokenizeYaml`, `Token` to an internal module
 module Lib3(hint, gameStart, parseDocument, tokenizeYaml, Token(..), GameStart, Hint) where
 
-import Types ( Document(..), FromDocument, fromDocument, ToDocument (toDocument) )
+import Types 
 import Lib1 (State(..))
 import Data.List ( isPrefixOf )
 import Text.Read (readEither, readMaybe)
@@ -21,8 +21,9 @@ import Data.Maybe
 import Control.Applicative ( Alternative((<|>)) )
 import qualified Control.Monad.Trans.Error
 import Data.Monoid (Ap)
-import Text.XHtml (coords)
 
+type Hinted = Coord
+type Toggled = Coord
 type ColNo = [Int]
 type RowNo = [Int]
 type HintNo = Int
@@ -319,20 +320,20 @@ instance FromDocument Hint where
     fromDocument doc = do
         coordDoc <- fromDMap doc >>= findDMap "coords"
         temp <- hs coordDoc [] >>= checkHintLength
-        return Hint temp
+        return $ Hint temp
 
 hs :: Document -> [Coord] -> Either String [Coord]
 hs doc crds = do
-    nextDoc <- fromDMap doc >>= findDmap "tail"
+    nextDoc <- fromDMap doc >>= findDMap "tail"
     coordDoc' <- fromDMap doc >>= findDMap "head" >>= fromDMap
-    getCol <- findDmap "col" coordDoc' >>= fromDInteger
+    getCol <- findDMap "col" coordDoc' >>= fromDInteger
     getRow <- findDMap "row" coordDoc' >>= fromDInteger
     let temp = Coord getCol getRow : crds
     if isDNull nextDoc then Right temp
     else do
         hs nextDoc $ Coord getCol getRow : crds
 
-checkHintLength :: [Hinted] -> Either String [Int]
+checkHintLength :: [Hinted] -> Either String [Hinted]
 checkHintLength list = if length list <= 10 then Right list else Left "Incorrect Number of Hints"
 
 
@@ -340,5 +341,5 @@ checkHintLength list = if length list <= 10 then Right list else Left "Incorrect
 -- Errors are not reported since GameStart is already totally valid adt
 -- containing all fields needed
 hint :: State -> Hint -> State
-hint (State [Toggled] _ colNo rowNo hintNo) (Hint [Hinted]) = State [Toggled] [Hinted] colNo rowNo hintNo
+hint (State ts _ colNo rowNo hintNo) (Hint hs) = State ts hs colNo rowNo hintNo
 -- hint (State l) h = State $ ("Hint " ++ show h) : l

@@ -135,7 +135,7 @@ fromYamlTests = testGroup "Document from yaml"
           "key3: value3"
         ])
           @?=
-            Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3"), ])
+            Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3")])
       -- , testCase "Simple map" $ parseDocument (unlines [
       --     "key0: value0"
       --   ]) @?= Right (DMap [("key0", DString "value0")])

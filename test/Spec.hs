@@ -7,7 +7,8 @@ import Data.Yaml as Y ( encode )
 
 import Lib1 (State(..), emptyState)
 import Lib2 (renderDocument, gameStart, hint)
-import Lib3 (parseDocument, tokenizeYaml, Token(..))
+import Lib3 (parseDocument, tokenizeYaml)
+import Parser (Token(..), parseTokens, tokenizeYaml)
 import Types (Document(..), Coord(..))
 -- import Test.Tasty.Runners (TestTree(TestGroup))
 
@@ -45,15 +46,15 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "- \"test\"",
         "- asd"
       ])) @?= [
-        TokenDashListItem,
+        TokenSpace 0, TokenDashListItem,
         TokenScalarString "test",
         TokenNewLine,
-        TokenDashListItem,
+        TokenSpace 0, TokenDashListItem,
         TokenScalarString "asd"
       ]
   , testCase "joinBetweenScalar" $
     tokenizeYaml "foo    bar: f o o o b a a r" @?= [
-      TokenScalarString "foo    bar",
+      TokenSpace 0, TokenScalarString "foo    bar",
       TokenKeyColon,
       TokenScalarString "f o o o b a a r"
     ]
@@ -66,14 +67,13 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
           "- \"",
           "- ",
           "  - \"test\""
-        ]) @?= [
-          TokenDashListItem,
-          TokenScalarString "test\n test \\\"\n\n- ",
-          TokenDashListItem,
-          TokenNewLine,
-          TokenSpace 2,
-          TokenDashListItem,
-          TokenScalarString "test"
+        ]
+        -- unlines ["- \"test", " test \\\"", "", "- \""," - "]
+        ) @?= [
+          TokenSpace 0, TokenDashListItem,
+          TokenScalarString "test\n test \\\"\n\n- ", TokenNewLine,
+          TokenSpace 0, TokenDashListItem, TokenNewLine,
+          TokenSpace 2, TokenDashListItem, TokenScalarString "test"
         ]
     , testCase "Nested list" $ tokenizeYaml (unlines [
         "List:",
@@ -85,10 +85,10 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "    - 6",
         "    - 9",
         "    - null"
-      ]) @?= [TokenScalarString "List", TokenKeyColon, TokenNewLine, 
-        TokenDashListItem, TokenScalarInt 5, TokenNewLine,
-        TokenDashListItem, TokenScalarInt 6, TokenNewLine,
-        TokenDashListItem, TokenNewLine,
+      ]) @?= [TokenSpace 0, TokenScalarString "List", TokenKeyColon, TokenNewLine, 
+        TokenSpace 0, TokenDashListItem, TokenScalarInt 5, TokenNewLine,
+        TokenSpace 0, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
+        TokenSpace 0, TokenDashListItem, TokenNewLine,
         TokenSpace 2, TokenScalarString "Lol  asd", TokenKeyColon, TokenScalarString "lol", TokenNewLine,
         TokenSpace 2, TokenScalarString "List", TokenKeyColon, TokenNewLine,
         TokenSpace 4, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
@@ -135,7 +135,7 @@ fromYamlTests = testGroup "Document from yaml"
           "key3: value3"
         ])
           @?=
-            Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3"), ])
+            Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3")])
       -- , testCase "Simple map" $ parseDocument (unlines [
       --     "key0: value0"
       --   ]) @?= Right (DMap [("key0", DString "value0")])

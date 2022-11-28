@@ -2,17 +2,18 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
-module Parser(Token(..), tokenizeYaml, parseTokens) where
+module Parser(Token(..), tokenizeYaml, parseTokens, parseListOfDash, regular, some', many', expectToken, optionalToken, expectDiff, expectEnd, expectNLOrEOD) where
 
 import Types(Document(..), ToDocument, toDocument)
-import qualified Control.Monad.Trans.Error
+-- import qualified Control.Monad.Trans.Error
 import Data.List (isPrefixOf)
 import Text.Read (readMaybe)
 import Data.Maybe (isJust)
 import Control.Applicative ((<|>))
-import GHC.Base (Alternative(some, empty))
-import Data.Char (isSpace)
+-- import GHC.Base (Alternative(some, empty))
+-- import Data.Char (isSpace)
 import Data.Either (isRight)
+-- import GHC.IO (unsafePerformIO)
 
 -- - Raktai neturės "specialių" simbolių, o tik raides
 -- - Eilutės galimos tik raidės, skaitmenys ir tarpas
@@ -246,31 +247,87 @@ parseScalar ts = Left $ "Not a scalar, rest of tokens: " ++ show ts
 --                     Left _ -> return (list ++ [d], tokens'')
 --                     Right (_, tokens''''') -> parseListOfDash' (list ++ [d], tokens''''')
 
-
 parseListOfDash :: [Token] -> Either String (Document, [Token])
 parseListOfDash tokens = do
     (vals, tokens0) <- many' tokens regular
-    -- (_, tokens1) <- ending tokens
+    -- (vals, tokens0) <- one tokens <|> many' tokens regular
+    -- (vals, tokens0) <- many' tokens regular
+    -- (vals, tokens0) <- many' tokens regular <|> one tokens
+    -- (vals, tokens0) <- one tokens
+    -- (vals, tokens0) <- many' tokens regular
+    -- (_, tokens1) <- optionalToken TokenNewLine tokens0
+    -- (_, tokens2) <- expectEnd tokens1
     return (DList vals, tokens0)
-        where
-            regular :: [Token] -> Either String (Document, [Token])
-            regular tokens' = do
-                (_, tokens0') <- expectToken TokenDashListItem tokens'
-                (val, tokens1') <- parseTokens tokens0' -- <|> parseIndented
-                (_, tokens2') <- expectToken TokenNewLine tokens1'
-                return (val, tokens2')
+        -- where
+regular :: [Token] -> Either String (Document, [Token])
+regular tokens' = do
+    (_, tokens0') <- expectToken TokenDashListItem tokens'
+    (val, tokens1') <- parseIndented tokens0' <|> parseTokens tokens0'
+    (_, tokens2') <- expectNLOrEOD tokens1'
+    -- (_, tokens2') <- expectToken TokenNewLine tokens1'
+    return (val, tokens2')
 
-parseMapping :: [Token] -> Either String (Document, [Token])
-parseMapping tokens = do
-    (vals, tokens0) <- many' tokens regular
-    -- (_, tokens1) <- ending tokens
-    return (DMap vals, tokens0)
-        where
-            regular :: [Token] -> Either String ((String, Document), [Token])
-            regular tokens' = do
-                (val, tokens0') <- parseKeyValuePair' tokens'
-                (_, tokens1') <- expectToken TokenNewLine tokens0'
-                return (val, tokens1')
+-- TODO: handle this
+parseIndented :: [Token] ->  Either String (Document, [Token])
+parseIndented tokens = do
+    -- _ <- unsafePerformIO $ print "parseIndented" 
+    (_, tokens0) <- optionalToken (TokenSpace 0) tokens
+    -- (_, tokens1) <- expectToken TokenNewLine tokens0
+    (_, tokens1) <- optionalToken TokenNewLine tokens0
+    -- (_, tokens2) <- optionalToken (TokenSpace 0) tokens1 <- quite stupid, i've fixed this
+    -- (tokenInd, tokens3) <- optionalToken (TokenSpaceDiff 0) tokens2
+    (ind, tokens2) <- expectDiff tokens1
+
+    case ind of
+            _   | ind > 0 -> do
+                    (doc, tokens4) <- parseTokens tokens2
+                    return (doc, tokens4)
+                | otherwise  -> Left "Expected possitive difference of indentation"
+-- one :: [Token] -> Either String ([Document], [Token])
+-- one tokens' = do
+--     (_, tokens0') <- expectToken TokenDashListItem tokens'
+--     (val, tokens1') <- parseIndented tokens0' <|> parseTokens tokens0'
+--     return ([val], tokens1')
+
+-- parseMapping :: [Token] -> Either String (Document, [Token])
+-- parseMapping tokens = do
+--     (vals, tokens0) <- many' tokens regular
+--     -- (_, tokens1) <- ending tokens
+--     return (DMap vals, tokens0)
+--         where
+--             regular :: [Token] -> Either String ((String, Document), [Token])
+--             regular tokens' = do
+--                 (val, tokens0') <- parseKeyValuePair' tokens'
+--                 (_, tokens1') <- expectToken TokenNewLine tokens0'
+--                 return (val, tokens1')
+
+    --     _ | otherwise -> Left "Expected + diff of ind"
+    -- case tokenInd of
+    --     (TokenSpaceDiff ind)  
+    --             | ind > 0 -> do
+    --                 (doc, tokens4) <- parseTokens tokens3
+    --                 return (doc, tokens4)
+    --             | otherwise  -> Left "Expected possitive difference of indentation"
+    --     _ | otherwise -> Left "Expected + diff of ind"
+
+    --     ((TokenSpaceDiff ind), tokens3) <- optionalToken (TokenSpaceDiff 0) tokens2
+    -- -- (ind, tokens3) <- expectDiff tokens2
+
+    -- case ind of
+    --     _   | ind > 0 -> do
+    --             (doc, tokens4) <- parseTokens tokens3
+    --             return (doc, tokens4)
+    --         | otherwise -> Left "expected + ind diff"
+
+-- parseKeyValuePair' :: [Token] -> Either String ((String, Document), [Token])
+-- parseKeyValuePair' tokens = do
+--     (key, tokens1) <- expectString tokens
+--     let tokens2 = wsnl tokens1
+--     (_, tokens3) <- expectToken TokenKeyColon tokens2
+--     let tokens4 = wsnl tokens3
+--     -- (doc, tokens5) <- parseTokens tokens4
+--     (doc, tokens5) <- parseIndented tokens4 <|> parseTokens tokens4
+--     return ((key, doc), tokens5)
 
             -- ending :: [Token] -> Either String (Maybe Document, [Token])
             -- ending (TokenEndOfDocument:ts) = 
@@ -322,18 +379,6 @@ parseMapping tokens = do
 --                 (_, tokens3') <- expectToken TokenCollectionSep tokens2'
 --                 return (val, tokens3')
 
--- TODO: handle this
-parseIndented :: [Token] ->  Either String (Maybe Document, [Token])
-parseIndented tokens = do
-    (_, tokens0) <- expectToken TokenNewLine tokens
-    (ind, tokens1) <- expectDiff tokens0
-
-    case ind of
-         _  | ind > 0 -> do
-                (doc, tokens2) <- parseTokens tokens1
-                Right (Just doc, tokens2)
-            | otherwise  ->  Right (Nothing, tokens1)
-
 -- parseJSONLikeMap :: [Token] -> Either String (Document, [Token])
 -- parseJSONLikeMap tokens = do
 --     (_, tokens0) <- expectToken TokenBeginMapping tokens
@@ -371,14 +416,7 @@ parseIndented tokens = do
 --                 (_, tokens3') <- expectToken TokenCollectionSep tokens2'
 --                 return (keyval, tokens3')
 
-parseKeyValuePair' :: [Token] -> Either String ((String, Document), [Token])
-parseKeyValuePair' tokens = do
-    (key, tokens1) <- expectString tokens
-    let tokens2 = wsnl tokens1
-    (_, tokens3) <- expectToken TokenKeyColon tokens2
-    let tokens4 = wsnl tokens3
-    (doc, tokens5) <- parseTokens tokens4
-    return ((key, doc), tokens5)
+
 
 -- whitespace or newline
 wsnl :: [Token] -> [Token]
@@ -393,26 +431,51 @@ wsnl = dropWhile (\t -> isTokenSpace t || isTokenNewLine t)
 
 -- expectTokens :: [Token] -> [Token] -> Either String [Token]
 
+-- ignoreValueCmp :: Token -> Token -> Bool
+-- ignoreValueCmp (TokenSpace _) (TokenSpace _) = True
+-- ignoreValueCmp (Toke _) (TokenNewLine _) = True
+-- ignoreValueCmp _ _ = False
 
-optionalToken :: Token -> [Token] -> Either String [Token]
-optionalToken _ [] = Left "Empty token list"
-optionalToken (TokenSpace _) ((TokenSpace _):ts) = Right ts
+
+optionalToken :: Token -> [Token] -> Either String (Token, [Token])
+optionalToken token [] = Right (token, [])
+optionalToken (TokenSpace _) ((TokenSpace s):ts) = Right (TokenSpace s, ts)
+optionalToken (TokenSpaceDiff _) ((TokenSpaceDiff s):ts) = Right (TokenSpaceDiff s, ts)
 optionalToken tk (t:ts)
-    | tk == t = Right ts
-    | otherwise = Right (t:ts)
+    | tk == t = Right (t, ts)
+    | otherwise = Right (t, t:ts)
+-- optionalToken tk ts = Right (tk, ts) <|> expectToken tk ts
+
+expectEnd :: [Token] -> Either String (Token, [Token])
+expectEnd (TokenSpaceDiff s:ts)
+    | s < 0 = Right (TokenSpaceDiff s, ts)
+    | otherwise = Left "Expected negative indentation difference"
+expectEnd (TokenEndOfDocument:ts) = Right (TokenEndOfDocument, ts)
+expectEnd [] = Right (TokenEndOfDocument, [])
+expectEnd ts = Left $ "Expected an ending, i.e. TokenSpaceDiff < 0 or TokenEndOfDocument, but got: " ++ show ts
+
+expectNLOrEOD :: [Token] -> Either String (Token, [Token])
+expectNLOrEOD (TokenNewLine:ts) = Right (TokenNewLine, ts)
+expectNLOrEOD (TokenEndOfDocument:ts) = Right (TokenEndOfDocument, ts)
+expectNLOrEOD ((TokenSpaceDiff diff):ts) = 
+    if diff < 0 then Right (TokenSpaceDiff diff, ts)
+    else Left $ "ERR_05: Expected -diff, got" ++ show (TokenSpaceDiff diff:ts)
+expectNLOrEOD _ = Left "ERR_01: Expected either new-line or EoD or -indDiff"
+
+-- expectNLOrEOD ts = expectToken TokenNewLine ts <|> expectToken TokenEndOfDocument ts
 
 expectDiff :: [Token] -> Either String (Int, [Token])
 expectDiff (TokenSpaceDiff s:ts) = Right (s, ts)
-expectDiff ts = Left $ "Expected TokenSpaceDiff, but got: " ++ show ts
+expectDiff ts = Left $ "ERR_02: Expected TokenSpaceDiff, but got: " ++ show ts
 
 expectSpace :: [Token] -> Either String (Int, [Token])
 expectSpace (TokenSpace s:ts) = Right (s, ts)
-expectSpace ts = Left $ "Expected TokenSpace, but got: " ++ show ts
+expectSpace ts = Left $ "ERR_03: Expected TokenSpace, but got: " ++ show ts
 -- expectRegardlessOfValue (TokenScalarString s:ts) = Right (s, ts)
 
 expectString :: [Token] -> Either String (String, [Token])
 expectString (TokenScalarString s:ts) = Right (s, ts)
-expectString ts = Left $ "Expected TokenString, but got: " ++ show ts
+expectString ts = Left $ "ERR_04: Expected TokenString, but got: " ++ show ts
 
 expectSpaceOrNL :: [Token] -> Either String [Token]
 expectSpaceOrNL (TokenSpace _:ts) = Right ts
@@ -423,7 +486,7 @@ expectToken :: Token -> [Token] -> Either String (Token, [Token])
 expectToken _ [] = Left "Empty token list"
 expectToken tk (t:ts)
     | tk == t = Right (t, ts)
-    | otherwise = Left $ "Expected: " ++ show tk ++ ", but got: " ++ show t
+    | otherwise = Left $ "Expected: " ++ show tk ++ ", but got: " ++ show (t:ts)
 
 takeScalar :: [Token] -> Either String (Document, [Token])
 takeScalar (t:ts)
@@ -434,11 +497,14 @@ takeScalar (t:ts)
     | otherwise = Left $ show t ++ " is not a scalar, left: " ++ show ts
 takeScalar [] = Left "EmptyTokenList"
 
-firstRight :: Control.Monad.Trans.Error.Error l => [from -> Either l r] -> l -> from -> Either l r
-firstRight funcs failMsg el = foldr (\func acc -> acc <|> func el) (Left failMsg) funcs
+-- firstRight :: [from -> Either l r] -> l -> from -> Either l r
+firstRight :: [from -> Either String r] -> from -> Either String r
+firstRight (f:funcs) el = foldr (\func acc -> acc <|> func el) (f el) funcs
+firstRight [] _ = undefined
 
-allRight :: Control.Monad.Trans.Error.Error l => [from -> Either l r] -> l -> from -> [Either l r]
-allRight funcs failMsg el = foldr (\func acc -> if isRight (func el) then func el : acc else acc) [Left failMsg] funcs
+allRight :: [from -> Either String r] -> from -> [Either String r]
+allRight (f:funcs) el = foldr (\func acc -> if isRight (func el) then func el : acc else acc) [f el] funcs
+allRight [] _ = undefined
 
 -- parseJSONLikeMaping = undefined
 
@@ -453,11 +519,12 @@ allRight funcs failMsg el = foldr (\func acc -> if isRight (func el) then func e
 -- parseTokens tokens =  parseTokens' tokens <|>  parseSingleScalar tokens
 -- parseTokens tokens = parseJSONLikeMap tokens
 
-parsers = [parseScalar, parseMapping, parseListOfDash]
+-- parsers = [parseListOfDash, parseScalar, parseMapping]
+parsers = [parseScalar, parseListOfDash]
 -- parsers = [parseJSONLikeMap, parseListOfOneDash, parseScalar, parseListOfOneDash]
 
 parseTokens :: [Token] -> Either String (Document, [Token])
-parseTokens tokens = firstRight parsers "nope" tokens
+parseTokens tokens = firstRight parsers tokens
     -- let goodOnes = allRight parsers "nope" tokens
     -- if null goodOnes then Left "Nope" else Right $ head $ allRight parsers "nope" tokens
     -- where

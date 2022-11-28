@@ -125,8 +125,8 @@ fromYamlTests = testGroup "Document from yaml"
           parseDocument "null" @?= Right DNull
       , testCase "null (~)" $
           parseDocument "~" @?= Right DNull
-      , testCase "null ()" $
-          parseDocument "" @?= Right DNull
+      -- , testCase "null ()" $
+      --     parseDocument "" @?= Right DNull
       , testCase "integer" $
           parseDocument "56" @?= Right (DInteger 56)
       , testCase "integer" $
@@ -135,17 +135,18 @@ fromYamlTests = testGroup "Document from yaml"
           parseDocument "\"foobar\"" @?= Right (DString "foobar")
       , testCase "string with '" $
           parseDocument "'foobar'" @?= Right (DString "foobar")
-      , testCase "List of one" $ parseDocument "- 5" @?= Right (DList [DInteger 5])
-      , testCase "JSON like list" $ parseDocument 
-          "[[\"not empty\"], 5, [], \"lol\", 'no']" 
+      , testCase "JSON like list" $ parseDocument
+          "[[\"not empty\"], 5, [], \"lol\", 'no']"
             @?=
               Right (DList [DList [DString "not empty"], DInteger 5, DList [], DString "lol", DString "no"])
-      , testCase "JSON like simple list" $ parseDocument 
-          "[4, 5, 6, \"lol\",'no']" 
+      , testCase "JSON like simple list" $ parseDocument
+          "[4, 5, 6, \"lol\",'no']"
             @?=
               Right (DList [DInteger 4, DInteger 5, DInteger 6, DString "lol", DString "no"])
       , testCase "JSON like" $ parseDocument "[key: value, 5, \"lol\", {key: 'value', key1: value1 }]" @?=
           Right (DList [DMap [("key", DString "Value")], DInteger 5, DString "lol", DMap [("key", DString "value"), ("key1", DString "value1")]])
+      , testCase "List of one" $ parseDocument "- 5" @?= Right (DList [DInteger 5])
+      , testCase "List of one" $ parseDocument "-\n  5" @?= Right (DList [DInteger 5])
       , testCase "Simple simple list" $ parseDocument (unlines [
           "- asd",
           "- 1",
@@ -153,14 +154,61 @@ fromYamlTests = testGroup "Document from yaml"
           "- 2"
         ]) @?= Right (DList [DString "asd", DInteger 1, DString "nice", DInteger 2])
       , testCase "Simple list" $ parseDocument (unlines [
+          "-",
+          "  - lol"
+        ])
+          @?=
+            Right (DList [DList [DString "lol"]])
+      , testCase "Simple list" $ parseDocument (unlines [
           "- asd",
           "-",
           "  - lol",
           "- nice",
-          "- "
+          "- null"
         ])
           @?=
-            Right (DList [DString "asd", DInteger 5, DList [DString "lol"], DString "nice", DNull])
+            Right (DList [DString "asd", DList [DString "lol"], DString "nice", DNull])
+        , testCase "Complex list" $ parseDocument (unlines [
+            "- 1 1",
+            "- 2 2",
+            "- foo-123",
+            "- foobar",
+            "-",
+            "  - \"value\"",
+            "  -",
+            "     - FOO",
+            "     - bar",
+            "  - 123",
+            "-",
+            "   -"  ,
+            "       - see",
+            "-",
+            "     -",
+            "       - pee",
+            "       - hee",
+            "     - BAR",
+            "- asd"
+          ]) @?= Right (
+              DList [
+                DString "1 1",
+                DString "2 2",
+                DString "foo-123",
+                DString "foobar",
+                DList [
+                  DString "value",
+                  DList [DString "FOO", DString "bar"],
+                  DInteger 123
+                ],
+                DList [DList [ DString "see"]],
+                DList [DList [
+                    DString "pee",
+                    DString "hee"
+                  ],
+                  DString "BAR"
+                ],
+                DString "asd"
+              ]
+            )
         , testCase "Simple mapping" $ parseDocument (unlines [
           "key1: value1",
           "key2: value2",
@@ -171,13 +219,25 @@ fromYamlTests = testGroup "Document from yaml"
       , testCase "Simple map" $ parseDocument (unlines [
           "key0: value0"
         ]) @?= Right (DMap [("key0", DString "value0")])
-      , testCase "Keyless map" $ parseDocument (unlines [ ": value" ]) @?= (Left "TODO")
+      , testCase "Simple map" $ parseDocument (unlines [
+          "key0:",
+          "  - value0",
+          "  - value1",
+          "key: value"
+        ]) @?= Right (DMap [("key0", DList [DString "value0", DString "value1"]), ("key", DString "value")])
+      , testCase "Simple map" $ parseDocument (unlines [
+          "keys:",
+          "  key0: value0",
+          "  key1: value1",
+          "key: value"
+        ]) @?= Right (DMap [("keys", DMap [("key0", DString "value0"), ("key1", DString "value1")]), ("key", DString "value")])
+      , testCase "Keyless map" $ parseDocument (unlines [ ": value" ]) @?= Left "TODO"
       , testCase "key:key:value madness" $ assertBool "" $ isLeft (parseDocument "key: key: value")
-      , testCase "key:key:value madness" $ (parseDocument "key: key: value") @?= (Left "something")
+      , testCase "key:key:value madness" $ parseDocument "key: key: value" @?= Left "something"
       , testCase "too key:key too value" $ assertBool "" $ isLeft $ parseDocument "key: key: value: value"
-      , testCase "too key:key too value" $ parseDocument "key: key: value: value" @?= (Left "something")
+      , testCase "too key:key too value" $ parseDocument "key: key: value: value" @?= Left "something"
       , testCase "key:key:value electric valuegaloo" $ assertBool "" $ isLeft $ parseDocument "key: key: value: value: key"
-      , testCase "key:key:value electric valuegaloo" $ parseDocument "key: key: value: value: key" @?= (Left "something")
+      , testCase "key:key:value electric valuegaloo" $ parseDocument "key: key: value: value: key" @?= Left "something"
   ]
 
 toYamlTests :: TestTree

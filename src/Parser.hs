@@ -2,7 +2,8 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
-module Parser(Token(..), tokenizeYaml, parseTokens, parseListOfDash, regular, some', many', expectToken, optionalToken, expectDiff, expectEnd, expectNLOrEOD) where
+{-# HLINT ignore "Eta reduce" #-}
+module Parser(Token(..), test0, test1, parseIndented, tokenizeYaml, parseTokens, parseListOfDash, some', many', expectToken, optionalToken, expectDiff, expectEnd, expectNLOrEOD) where
 
 import Types(Document(..), ToDocument, toDocument)
 -- import qualified Control.Monad.Trans.Error
@@ -19,6 +20,45 @@ import Data.Either (isRight)
 -- - Eilutės galimos tik raidės, skaitmenys ir tarpas
 -- - Eilutės maksimalus ilgis 16
 -- - Rakto maksimalus ilgis 10
+
+-- TODO: 
+-- * make [Token] -> Either String (Document, [Token]) Applicative, Functor????
+--   no need to reimplement many', some', optional and others
+-- * check/write test for:
+--  | -
+--  |   -
+--  |     - high_value
+--  |   - low_value 
+--                         <- this "unpexpected" ending may cause problemss
+
+
+test0 = unlines [
+            "-",
+            "   -"  ,
+            "       - see",
+            "   -",
+            "       -",
+            "         - bee",
+            "   -",
+            "       -",
+            "           - high",
+            "- 5",
+            "-",
+            "   -",
+            "      -",
+            "         lll",
+            "- ll"
+        ]
+
+test1 = unlines [
+            "-",
+            "  5",
+            "-",
+            "   -",
+            "      -",
+            "         lll",
+            "- ll"
+      ]
 
 -- YamlToken is purposefully not recursive
 data Token =
@@ -42,6 +82,12 @@ data Token =
     | TokenEndOfDocument
     deriving (Show, Eq)
 
+toYamlStr :: Token -> String
+toYamlStr (TokenScalarString str) = str
+toYamlStr (TokenScalarInt int) = show int
+toYamlStr TokenScalarNull = "null"
+toYamlStr _ = undefined
+
 isTokenNewLine TokenNewLine = True
 isTokenNewLine _ = False
 
@@ -59,13 +105,15 @@ isTokenScalarNull _ = False
 -- getTokenScalarInt _ = Left "Not an TokenScalarInt"
 
 isTokenSpace (TokenSpace _) = True
-isTokenSpace _ = False
+isTokenSpace _              = False
 
 isTokenScalar (TokenScalarInt _)    = True
 isTokenScalar (TokenScalarString _) = True
 isTokenScalar TokenScalarNull       = True
-isTokenScalar _ = False
+isTokenScalar _                     = False
 
+isTokenKeyColon TokenKeyColon  = True
+isTokenKeyColon _              = False
 --                         Indentation Token on the line
 -- data InfoToken = InfoToken Int         [Token]
 
@@ -73,12 +121,13 @@ instance ToDocument Token where
     toDocument (TokenScalarString str) = DString str
     toDocument (TokenScalarInt int) = DInteger int
     toDocument TokenScalarNull = DNull
-    -- toDocument _ = undefined
+    toDocument _ = undefined
 
 tokenizeYaml :: String -> [Token]
 tokenizeYaml "" = []
-tokenizeYaml str = ((diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml') str) ++ [TokenEndOfDocument]
+tokenizeYaml str = pipeline str
     where
+        pipeline str' = (splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml') str' ++ [TokenEndOfDocument]
         tokenizeYaml' :: String -> [Token]
         tokenizeYaml' "" = []
         tokenizeYaml' str' =  do
@@ -131,6 +180,31 @@ tokenizeYaml str = ((diff . normalizeWhitespace . parseScalarToken . joinBetween
                 diff' (tkn:ts, ts') prev = diff' (ts, ts' ++ [tkn]) prev
         diff (_:_) = undefined
         diff [] = []
+
+        -- this should fix testCase "Complex list"
+        -- |-         |
+        -- |  -       | <-  TokenSpaceDiff 2
+        -- |    - foo | <-  TokenSpaceDiff 2
+        -- |- bar       <-  splits this 'clif' (TokenSpaceDiff (-4)) into several `TokenSpaceDiff`s ([TokenSpaceDiff (-2), TokenSpaceDiff (-2)])
+        splitDiff :: [Token] -> [Token]
+        splitDiff tkns = snd $ splitDiff' tkns [] []
+            where
+                splitDiff' :: [Token] -> [Int] -> [Token] -> ([Token], [Token])
+                splitDiff' [] _ ts = ([], ts)
+                splitDiff' ((TokenSpaceDiff ind):ts) acc ts'
+                    -- decline, compare with previous diffs and split if needed
+                    | ind < 0 =
+                        case acc of
+                            [] -> undefined -- access without previous history should never happen
+                            (a:acc') ->
+                                -- assumptions: a > 0,  ind < 0
+                                if a + ind == 0 then splitDiff' ts acc' (ts' ++ [TokenSpaceDiff ind])
+                                else splitDiff' (TokenSpaceDiff (a + ind):ts) acc' (ts' ++ [TokenSpaceDiff (-a)])
+                    -- incline, save to acc
+                    | ind > 0 = splitDiff' ts (ind:acc) (ts' ++ [TokenSpaceDiff ind])
+                splitDiff' (t:ts) acc ts' = splitDiff' ts acc (ts' ++ [t])
+
+
 
         joinBetweenScalar :: [Token] -> [Token]
         joinBetweenScalar tokens = snd $ joinBetweenScalar' (tokens, [])
@@ -209,6 +283,13 @@ parseScalar (TokenScalarInt i:ts) = Right (DInteger i, ts)
 parseScalar (TokenScalarString str:ts) = Right (DString str, ts)
 parseScalar ts = Left $ "Not a scalar, rest of tokens: " ++ show ts
 
+parseScalarWithNl :: [Token] -> Either String (Document, [Token])
+parseScalarWithNl ts = do
+    (val, ts') <- parseScalar ts
+    (_, ts'') <- expectNLOrEOD ts'
+    (_, ts''') <- optionalToken (TokenSpace 0) ts''
+    return (val, ts''')
+
 -- Document with whitespace only
 -- parseEmpty :: [Token] -> Either String (Document, [Token])
 -- parseEmpty ts = Right (Do)
@@ -247,42 +328,59 @@ parseScalar ts = Left $ "Not a scalar, rest of tokens: " ++ show ts
 --                     Left _ -> return (list ++ [d], tokens'')
 --                     Right (_, tokens''''') -> parseListOfDash' (list ++ [d], tokens''''')
 
+-- parseObject :: [Token] -> Either String (Document, [Token])
+
 parseListOfDash :: [Token] -> Either String (Document, [Token])
 parseListOfDash tokens = do
     (vals, tokens0) <- many' tokens regular
-    -- (vals, tokens0) <- one tokens <|> many' tokens regular
-    -- (vals, tokens0) <- many' tokens regular
-    -- (vals, tokens0) <- many' tokens regular <|> one tokens
-    -- (vals, tokens0) <- one tokens
-    -- (vals, tokens0) <- many' tokens regular
-    -- (_, tokens1) <- optionalToken TokenNewLine tokens0
-    -- (_, tokens2) <- expectEnd tokens1
     return (DList vals, tokens0)
-        -- where
-regular :: [Token] -> Either String (Document, [Token])
-regular tokens' = do
-    (_, tokens0') <- expectToken TokenDashListItem tokens'
-    (val, tokens1') <- parseIndented tokens0' <|> parseTokens tokens0'
-    (_, tokens2') <- expectNLOrEOD tokens1'
-    -- (_, tokens2') <- expectToken TokenNewLine tokens1'
-    return (val, tokens2')
+        where
+        regular :: [Token] -> Either String (Document, [Token])
+        regular tokens' = do
+            (_, tokens0') <- expectToken TokenDashListItem tokens'
+            (_, tokens0'') <- optionalToken TokenNewLine tokens0'
+            (_, tokens0''') <- optionalToken (TokenSpace 0) tokens0''
+            (val, tokens1') <- parseTokens tokens0''' <|> parseIndented tokens0'''
+            -- (val, tokens1') <- parseTokens tokens0'''
+            (_, tokens2') <- expectNLOrEOD tokens1'
+            return (val, tokens2')
 
--- TODO: handle this
 parseIndented :: [Token] ->  Either String (Document, [Token])
 parseIndented tokens = do
-    -- _ <- unsafePerformIO $ print "parseIndented" 
-    (_, tokens0) <- optionalToken (TokenSpace 0) tokens
-    -- (_, tokens1) <- expectToken TokenNewLine tokens0
-    (_, tokens1) <- optionalToken TokenNewLine tokens0
-    -- (_, tokens2) <- optionalToken (TokenSpace 0) tokens1 <- quite stupid, i've fixed this
-    -- (tokenInd, tokens3) <- optionalToken (TokenSpaceDiff 0) tokens2
-    (ind, tokens2) <- expectDiff tokens1
+    -- (_, tokens0) <- optionalToken (TokenSpace 0) tokens
+    -- (_, tokens1) <- optionalToken TokenNewLine tokens0
+    -- (_, tokens2) <- optionalToken (TokenSpace 0) tokens1
+    -- (tokenInd, tokens3) <- optionalToken (TokenNewLine) tokens2
+    (ind, tokens3) <- expectDiff tokens
 
     case ind of
-            _   | ind > 0 -> do
-                    (doc, tokens4) <- parseTokens tokens2
-                    return (doc, tokens4)
-                | otherwise  -> Left "Expected possitive difference of indentation"
+        _   | ind > 0 -> do
+                (doc, tokens4) <- parseTokens tokens3
+                return (doc, tokens4)
+            | otherwise  -> Left "Expected possitive difference of indentation"
+
+
+parseMapping :: [Token] -> Either String (Document, [Token])
+parseMapping tokens = do
+    (vals, tokens0) <- many' tokens regular
+    return (DMap vals, tokens0)
+        where
+        regular :: [Token] -> Either String ((String, Document), [Token])
+        regular tokens' = do
+            (keyval, tokens0') <- parseKeyValue tokens'
+            (_, tokens0'') <- optionalToken TokenNewLine tokens0'
+            (_, tokens0''') <- optionalToken (TokenSpace 0) tokens0''
+            (_, tokens0'''') <- expectNLOrEOD tokens0'''
+            return (keyval, tokens0'''')
+
+parseKeyValue :: [Token] -> Either String ((String, Document), [Token])
+parseKeyValue ts = do
+    (key, ts') <- expect isTokenScalar ts
+    (_, ts'') <- expect isTokenKeyColon ts'
+    (val, ts''') <- parseIndented ts'' <|> parseTokens ts''
+    (_, ts'''') <- expectNLOrEOD ts'''
+    return ((toYamlStr key, val), ts'''')
+
 -- one :: [Token] -> Either String ([Document], [Token])
 -- one tokens' = do
 --     (_, tokens0') <- expectToken TokenDashListItem tokens'
@@ -446,6 +544,17 @@ optionalToken tk (t:ts)
     | otherwise = Right (t, t:ts)
 -- optionalToken tk ts = Right (tk, ts) <|> expectToken tk ts
 
+expectScalar :: [Token] ->  Either String (Document, [Token])
+expectScalar ts = do
+    (scal, tkns) <- expect isTokenScalar ts
+    return (toDocument scal, tkns)
+
+expect :: (Token -> Bool) -> [Token] -> Either String (Token, [Token])
+expect cond (t:ts) =
+    if cond t then Right (t, ts)
+    else Left "ERR_?: `expect` failed"
+expect _ _ = Left "ERR_?: empty token list, ig"
+
 expectEnd :: [Token] -> Either String (Token, [Token])
 expectEnd (TokenSpaceDiff s:ts)
     | s < 0 = Right (TokenSpaceDiff s, ts)
@@ -457,7 +566,7 @@ expectEnd ts = Left $ "Expected an ending, i.e. TokenSpaceDiff < 0 or TokenEndOf
 expectNLOrEOD :: [Token] -> Either String (Token, [Token])
 expectNLOrEOD (TokenNewLine:ts) = Right (TokenNewLine, ts)
 expectNLOrEOD (TokenEndOfDocument:ts) = Right (TokenEndOfDocument, ts)
-expectNLOrEOD ((TokenSpaceDiff diff):ts) = 
+expectNLOrEOD ((TokenSpaceDiff diff):ts) =
     if diff < 0 then Right (TokenSpaceDiff diff, ts)
     else Left $ "ERR_05: Expected -diff, got" ++ show (TokenSpaceDiff diff:ts)
 expectNLOrEOD _ = Left "ERR_01: Expected either new-line or EoD or -indDiff"
@@ -472,10 +581,6 @@ expectSpace :: [Token] -> Either String (Int, [Token])
 expectSpace (TokenSpace s:ts) = Right (s, ts)
 expectSpace ts = Left $ "ERR_03: Expected TokenSpace, but got: " ++ show ts
 -- expectRegardlessOfValue (TokenScalarString s:ts) = Right (s, ts)
-
-expectString :: [Token] -> Either String (String, [Token])
-expectString (TokenScalarString s:ts) = Right (s, ts)
-expectString ts = Left $ "ERR_04: Expected TokenString, but got: " ++ show ts
 
 expectSpaceOrNL :: [Token] -> Either String [Token]
 expectSpaceOrNL (TokenSpace _:ts) = Right ts
@@ -520,11 +625,25 @@ allRight [] _ = undefined
 -- parseTokens tokens = parseJSONLikeMap tokens
 
 -- parsers = [parseListOfDash, parseScalar, parseMapping]
-parsers = [parseScalar, parseListOfDash]
+-- parsers = [parseScalar, parseMapping, parseScalarWithNl, parseListOfDash]
 -- parsers = [parseJSONLikeMap, parseListOfOneDash, parseScalar, parseListOfOneDash]
 
 parseTokens :: [Token] -> Either String (Document, [Token])
-parseTokens tokens = firstRight parsers tokens
+parseTokens tokens = parseScalar tokens <|> parseScalarWithNl tokens <|> parseListOfDash tokens
+-- parseTokens tokens = parseMapping tokens <|> parseScalar tokens <|> parseScalarWithNl tokens <|> parseListOfDash tokens
+-- parseTokens tokens = parseMapping tokens <|> parseScalar tokens
+    -- let (g:goodOnes) = allRight parsers tokens
+    -- return $ foldr select g goodOnes -- <- the best
+    --     where
+    --         select :: t Either String (Document, [Token]) =>  [t] -> t -> t
+    --         select acc res = 
+    --             if isLeft res then acc
+    --             else if failedness res < failedness acc 
+    --         failedness :: (Document, [Token]) -> Int
+    --         failedness (_, ts) = length ts
+
+    -- foldr firstRight parsers tokens
+
     -- let goodOnes = allRight parsers "nope" tokens
     -- if null goodOnes then Left "Nope" else Right $ head $ allRight parsers "nope" tokens
     -- where

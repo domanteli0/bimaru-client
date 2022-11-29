@@ -18,14 +18,7 @@ type HintNo = Int
 -- Parses a document from yaml
 parseDocument :: String -> Either String Document
 parseDocument str = do
-    let tokens = tokenizeYaml str
-    -- parseDocument consists of four seperate steps:
-    -- - tokenization
-    -- - scalar parsing
-    -- -- - filtering - gets rid of obviously wrong (i.e. easy to detect) cases
-    -- - actual parsing from tokens into Document 
-    --     i.e. mostly forming collections (lists, mappings) from tokens
-    doc <- parseTokens tokens
+    doc <- parseTokens $ tokenizeYaml str
     return $ fst doc
 
 -- IMPLEMENT

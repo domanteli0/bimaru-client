@@ -209,6 +209,45 @@ fromYamlTests = testGroup "Document from yaml"
                 DString "asd"
               ]
             )
+        , testCase "List ending with indentation" $ parseDocument (unlines [
+            "- 5",
+            "-",
+            "   -",
+            "      -",
+            "         lll",
+            "   - ll"
+        ]) @?= Right (
+          DList [
+            DInteger 5,
+            DList [DList [DString "lll"], DString "ll"]
+          ])
+        , testCase "Lists with 'clifs'" $ parseDocument (unlines [
+            "-",
+            "   -"  ,
+            "       - see",
+            "   -",
+            "       -",
+            "         - bee",
+            "   -",
+            "       -",
+            "           - high",
+            "- 5",
+            "-",
+            "   -",
+            "      -",
+            "         lll",
+            "- ll"
+        ]) @?= Right (
+          DList [
+            DList [
+              DList [DString "see"],
+              DList [DList [DString "bee"]],
+              DList [DList [DString "high"]]
+            ],
+            DInteger 5,
+            DList [DList [DList [DString "lll"]]],
+            DString "ll"
+          ])
         , testCase "Simple mapping" $ parseDocument (unlines [
           "key1: value1",
           "key2: value2",
@@ -216,9 +255,28 @@ fromYamlTests = testGroup "Document from yaml"
         ])
           @?=
             Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3")])
-      , testCase "Simple map" $ parseDocument (unlines [
-          "key0: value0"
-        ]) @?= Right (DMap [("key0", DString "value0")])
+      , testCase "Single nl scalar" $ parseDocument (unlines [
+            "-",
+            "  5",
+            "- ",
+            "   -",
+            -- "   - l",
+            "      -",
+            "         lll",
+            "- ll"
+      ]) @?= Right (DList[
+        DInteger 5,
+        DList [DList [DList [DString "lll"]]],
+        DString "ll"
+      ])
+      , testCase "Simple map of single keyval" $ parseDocument
+          "key0: value0" @?= Right (DMap [("key0", DString "value0")])
+      , testCase "Simple map of single keyval" $ parseDocument
+        (unlines[
+          "key0: value0",
+          "key1: value1",
+          "key2: value2"
+        ]) @?= Right (DMap [("key0", DString "value0"), ("key1", DString "value1"), ("key2", DString "value2")])
       , testCase "Simple map" $ parseDocument (unlines [
           "key0:",
           "  - value0",

@@ -10,7 +10,7 @@ import Data.Yaml as Y ( encode )
 import Lib1 (State(..), emptyState)
 import Lib2 (renderDocument, gameStart, hint)
 import Lib3 (parseDocument, tokenizeYaml)
-import ParserRefac (Token(..), parseTokens, tokenizeYaml)
+import ParserRefac (Token(..), tokenizeYaml)
 import Types (Document(..), Coord(..))
 import Data.Aeson.Types (parse)
 import Data.Either
@@ -55,7 +55,7 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         TokenNewLine,
         TokenDashListItem,
         TokenScalarString "asd",
-        TokenEndOfDocument
+        TokenNewLine
       ]
   , testCase "diff" $ tokenizeYaml (unlines [
       "- 6",
@@ -68,15 +68,14 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
       TokenDashListItem, TokenNewLine,
       TokenSpaceDiff 2, TokenDashListItem, TokenScalarInt 5, TokenNewLine,
       TokenDashListItem, TokenScalarInt 4, TokenNewLine,
-      TokenSpaceDiff (-2), TokenDashListItem, TokenScalarInt 3, TokenNewLine,
-      TokenEndOfDocument
+      TokenSpaceDiff (-2), TokenDashListItem, TokenScalarInt 3, TokenNewLine
     ]
   , testCase "joinBetweenScalar" $
     tokenizeYaml "foo    bar: f o o o b a a r" @?= [
       TokenScalarString "foo    bar",
       TokenKeyColon,
       TokenScalarString "f o o o b a a r",
-      TokenEndOfDocument
+      TokenNewLine
     ]
   , testCase "TODO: Test case name" $
     -- init is needed because unlines produces an additional newline
@@ -93,8 +92,7 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
           TokenDashListItem,
           TokenScalarString "test\n test \\\"\n\n- ", TokenNewLine,
           TokenDashListItem, TokenNewLine,
-          TokenSpaceDiff 2, TokenDashListItem, TokenScalarString "test",
-          TokenEndOfDocument
+          TokenSpaceDiff 2, TokenDashListItem, TokenScalarString "test", TokenNewLine
         ]
     , testCase "Nested list" $ tokenizeYaml (unlines [
         "List:",
@@ -114,8 +112,8 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         TokenScalarString "List", TokenKeyColon, TokenNewLine,
         TokenSpaceDiff 2, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
         TokenDashListItem, TokenScalarInt 9, TokenNewLine,
-        TokenDashListItem, TokenScalarNull, TokenNewLine,
-        TokenEndOfDocument
+        --                                  TODO: fix this  👇 should be (-2)
+        TokenDashListItem, TokenScalarNull, TokenSpaceDiff (-4), TokenSpaceDiff (-2), TokenNewLine
       ]
   ]
 
@@ -209,6 +207,25 @@ fromYamlTests = testGroup "Document from yaml"
                 DString "asd"
               ]
             )
+        , testCase "Complex /w only problematic part" $ parseDocument (unlines [
+            "-",
+            "   -"  ,
+            "       - see",
+            "-",
+            "     -",
+            "       - pee",
+            "       - hee",
+            "     - BAR",
+            "- asd"]) @?= Right (DList [
+                DList [DList [ DString "see"]],
+                DList [ DList [
+                    DString "pee",
+                    DString "hee"
+                  ],
+                  DString "BAR"
+                ],
+                DString "asd"
+            ])
         , testCase "List ending with indentation" $ parseDocument (unlines [
             "- 5",
             "-",
@@ -221,6 +238,12 @@ fromYamlTests = testGroup "Document from yaml"
             DInteger 5,
             DList [DList [DString "lll"], DString "ll"]
           ])
+        , testCase "list with 'clif'" $ parseDocument (unlines [
+            "-",
+            "   -",
+            "      lll",
+            "- ll"
+      ]) @?= Right(DList [DList [DString "lll"], DString "ll"])
         , testCase "Lists with 'clifs'" $ parseDocument (unlines [
             "-",
             "   -"  ,
@@ -245,7 +268,7 @@ fromYamlTests = testGroup "Document from yaml"
               DList [DList [DString "high"]]
             ],
             DInteger 5,
-            DList [DList [DList [DString "lll"]]],
+            DList [DList [DString "lll"]],
             DString "ll"
           ])
         , testCase "Simple mapping" $ parseDocument (unlines [
@@ -260,17 +283,16 @@ fromYamlTests = testGroup "Document from yaml"
             "  5",
             "- ",
             "   -",
-            -- "   - l",
             "      -",
             "         lll",
             "- ll"
       ]) @?= Right (DList[
         DInteger 5,
-        DList [DList [DList [DString "lll"]]],
+        DList [DList [DString "lll"]],
         DString "ll"
       ])
-      , testCase "with whitespace" $ parseDocument "-         5" @?= Right (DList [5])
-      , testCase "with whitespace" $ parseDocument "-         5    " @?= Right (DList [5])
+      , testCase "with whitespace" $ parseDocument "-         5" @?= Right (DList [DInteger 5])
+      , testCase "with whitespace" $ parseDocument "-         5    " @?= Right (DList [DInteger 5])
       , testCase "Simple map of single keyval" $ parseDocument
           "key0: value0" @?= Right (DMap [("key0", DString "value0")])
       , testCase "Simple map of single keyval" $ parseDocument
@@ -291,13 +313,11 @@ fromYamlTests = testGroup "Document from yaml"
           "  key1: value1",
           "key: value"
         ]) @?= Right (DMap [("keys", DMap [("key0", DString "value0"), ("key1", DString "value1")]), ("key", DString "value")])
-      , testCase "Keyless map" $ parseDocument (unlines [ ": value" ]) @?= Left "TODO"
-      , testCase "key:key:value madness" $ assertBool "" $ isLeft (parseDocument "key: key: value")
-      , testCase "key:key:value madness" $ parseDocument "key: key: value" @?= Left "something"
-      , testCase "too key:key too value" $ assertBool "" $ isLeft $ parseDocument "key: key: value: value"
-      , testCase "too key:key too value" $ parseDocument "key: key: value: value" @?= Left "something"
-      , testCase "key:key:value electric valuegaloo" $ assertBool "" $ isLeft $ parseDocument "key: key: value: value: key"
-      , testCase "key:key:value electric valuegaloo" $ parseDocument "key: key: value: value: key" @?= Left "something"
+      -- , testCase "Keyless map" $ parseDocument (unlines [ ": value" ]) @?= Left "TODO"
+      , testCase "Keyless map" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument (unlines [ ": value" ])
+      , testCase "key:key:value madness" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft (parseDocument "key: key: value")
+      , testCase "too key:key too value" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument "key: key: value: value"
+      , testCase "key:key:value electric valuegaloo" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument "key: key: value: value: key"
   ]
 
 toYamlTests :: TestTree

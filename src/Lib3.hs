@@ -4,7 +4,7 @@
 -- TODO: move `tokenizeYaml`, `Token` to an internal module
 module Lib3(hint, gameStart, parseDocument, tokenizeYaml, Token, GameStart, Hint) where
 
-import Parser(Token, parseTokens, tokenizeYaml)
+import ParserRefac(parse, Token, tokenizeYaml)
 import Types ( FromDocument(..), Document(..), Coord(Coord) )
 import Lib1 (State(..))
 
@@ -17,9 +17,7 @@ type HintNo = Int
 -- IMPLEMENT
 -- Parses a document from yaml
 parseDocument :: String -> Either String Document
-parseDocument str = do
-    doc <- parseTokens $ tokenizeYaml str
-    return $ fst doc
+parseDocument str = parse str
 
 -- IMPLEMENT
 -- Change right hand side as you wish

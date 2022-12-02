@@ -10,7 +10,7 @@ import Types(Document(..), ToDocument, toDocument)
 import Data.List (isPrefixOf)
 import Text.Read (readMaybe)
 import Data.Maybe (isJust)
-import Control.Applicative ((<|>))
+import Control.Applicative
 -- import GHC.Base (Alternative(some, empty))
 -- import Data.Char (isSpace)
 import Data.Either (isRight)
@@ -31,6 +31,28 @@ import Data.Either (isRight)
 --  |   - low_value 
 --                         <- this "unpexpected" ending may cause problemss
 
+newtype Parser a = Parser
+  { runParser :: [Token] -> Either String ([Token], a)
+  }
+
+instance Functor Parser where
+  fmap f (Parser p) =
+    Parser $ \input -> do
+      (input', x) <- p input
+      return (input', f x)
+
+instance Applicative Parser where
+  pure x = Parser $ \input -> Right (input, x)
+  (Parser p1) <*> (Parser p2) =
+    Parser $ \input -> do
+      (input', f) <- p1 input
+      (input'', a) <- p2 input'
+      return (input'', f a)
+
+instance Alternative Parser where
+  empty = Parser $ const $ Left "No parser"
+  (Parser p1) <|> (Parser p2) =
+      Parser $ \input -> p1 input <|> p2 input
 
 test0 = unlines [
             "-",

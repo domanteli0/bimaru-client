@@ -10,7 +10,7 @@ import Data.Yaml as Y ( encode )
 import Lib1 (State(..), emptyState)
 import Lib2 (renderDocument, gameStart, hint)
 import Lib3 (parseDocument, tokenizeYaml)
-import Parser (Token(..), parseTokens, tokenizeYaml)
+import ParserRefac (Token(..), parseTokens, tokenizeYaml)
 import Types (Document(..), Coord(..))
 import Data.Aeson.Types (parse)
 import Data.Either
@@ -269,6 +269,8 @@ fromYamlTests = testGroup "Document from yaml"
         DList [DList [DList [DString "lll"]]],
         DString "ll"
       ])
+      , testCase "with whitespace" $ parseDocument "-         5" @?= Right (DList [5])
+      , testCase "with whitespace" $ parseDocument "-         5    " @?= Right (DList [5])
       , testCase "Simple map of single keyval" $ parseDocument
           "key0: value0" @?= Right (DMap [("key0", DString "value0")])
       , testCase "Simple map of single keyval" $ parseDocument

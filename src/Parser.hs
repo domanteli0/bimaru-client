@@ -3,9 +3,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
 {-# HLINT ignore "Eta reduce" #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE InstanceSigs #-}
-module Parser(parse, Token(..), test1, test2, test3, test4, tokenizeYaml) where
+module Parser(parse, Token(..), tokenizeYaml) where
 
 import Types(Document(..), ToDocument, toDocument)
 -- import qualified Control.Monad.Trans.Error
@@ -20,16 +18,6 @@ import Control.Applicative
 -- - Eilutės galimos tik raidės, skaitmenys ir tarpas
 -- - Eilutės maksimalus ilgis 16
 -- - Rakto maksimalus ilgis 10
-
--- TODO: 
--- * make [Token] -> Either String (Document, [Token]) Applicative, Functor????
---   no need to reimplement many', some', optional and others
--- * check/write test for:
---  | -
---  |   -
---  |     - high_value
---  |   - low_value 
---                         <- this "double" ending may cause problems
 
 newtype Parser a = Parser
   { runParser :: [Token] -> Either String (a, [Token])
@@ -53,36 +41,6 @@ instance Alternative Parser where
   empty = Parser $ const $ Left "ERR_00: No parser"
   (Parser p1) <|> (Parser p2) =
       Parser $ \input -> p1 input <|> p2 input
-
--- instance Monad Parser where
---     (>>=) :: Parser a -> (a -> Parser b) -> Parser b
---     -- (Parser ([Token] -> Either String (Document, [Token]))) >>= func = func ()
---     (Parser a) >>= func = func a
-
-test1 = "[5, key: value, {key: 'value'}]"
-test2 = "[1]"
-test3 = "[1, \n2]"
-test4 = "[1,]"
-
--- test1 = unlines [
---             "-",
---             "   -",
---             "      lll",
---             "- ll"
---       ]
--- test3 = unlines [
---             "-",
---             "  - 5",
---             "- 6"
---       ]
-
--- test2 = unlines [
---             "-",
---             "     -",
---             "       - pee",
---             "       - hee",
---             "     - BAR",
---             "- asd"]
 
 -- YamlToken is purposefully not recursive
 -- `tokenizeYaml` makes a guarante what
@@ -108,7 +66,6 @@ data Token =
     | TokenEndBracketList
     | TokenCollectionSep
     | TokenNewLine
-    -- | TokenEndOfDocument
     deriving (Show, Eq)
 
 toYamlStr :: Token -> String
@@ -163,10 +120,16 @@ tokenizeYaml :: String -> [Token]
 tokenizeYaml "" = []
 tokenizeYaml str = pipeline str
     where
+        -- pipeline str' = (splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n") -- ++[TokenEndOfDocument]
         pipeline str' = (splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n") -- ++[TokenEndOfDocument]
 
         tokenizeYaml' :: String -> [Token]
         tokenizeYaml' "" = []
+        -- special cases, i.e. hacky work arrounds
+        -- fix `getStr` to remove these
+        tokenizeYaml' "\"\"\n" = [TokenScalarString ""]
+        tokenizeYaml' "''\n" = [TokenScalarString ""]
+        -- 
         tokenizeYaml' str' =  do
             let (tokens, left) = tokenize str'
             if left /= "" then tokens ++ tokenizeYaml' left else tokens
@@ -321,9 +284,9 @@ tokenizeYaml str = pipeline str
                                 unJust (Just i) = i
                                 unJust Nothing = undefined
                 func t = t
-            -- parsers :: [Token] -> Either String (Document, [Token])
-            -- parsers = colParsers ++ scalarParsers
-            -- colParsers = [parseListOfOneDash]; scalarParsers = [parseSingleScalar]
+
+-- if, by now, you're wondering if the whole
+--  ~ ~ l e t ' s  t o k e n i z e ~ ~ thing was a mistake, it was
 
 parse :: String -> Either String Document
 parse str = do
@@ -331,10 +294,9 @@ parse str = do
     (doc, _) <- runParser parseYaml tokens
     return doc
 
--- parseYaml = parseNull <|> parseNumber <|> parseString <|> parseList
 parseYaml =  parseMap <|> parseIndented <|> parseList <|> parseJsonLike
 parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
-parseScalar =  parseNull <|> parseNumber <|> parseString <|> parseJsonMap'
+parseScalar =  parseNull <|> parseNumber <|> parseString
 
 tokenPFac :: (Token -> Token -> Bool) -> (Token -> Parser Token)
 tokenPFac cmpFunc = tokenP'
@@ -361,6 +323,9 @@ tokenPExact = tokenPFac (==)
 
 tokenP :: Token -> Parser Token
 tokenP = tokenPFac dumbCmp
+
+scalarTokenP :: Parser Token                                                  
+scalarTokenP = tokenPFac (\_ t2 -> isTokenScalar t2) $ TokenScalarInt 0
 
 tokenPOptional :: Token -> Parser Token
 tokenPOptional = tokenPFac' dumbCmp
@@ -393,7 +358,7 @@ parseJsonList =
             sep :: Parser Token
             sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
             one :: Parser Document
-            one = wsnlOptional *> parseJsonLike <* wsnlOptional
+            one = wsnlOptional *> parseJsonMap' <|> parseJsonLike <* wsnlOptional
 
 -- parseJsonMap = DMap <$> (some parseKeyValueJson <|> pure [])
 parseJsonMap' =
@@ -407,24 +372,12 @@ parseJsonMap =
     tokenP TokenBeginMapping *>
     wsnlOptional *>
     (
-        -- DList <$>
-        --     ((((:) <$> one)
-        --         <*>
-        --     many (sep *> one))
-        --         <|>
-        --     pure [])
-
-        -- DMap <$> 
-        --     (some parseKeyValueJson <|> pure [])
-
-        DMap <$> 
+        DMap <$>
             ((((:) <$> one)
                 <*>
             many (sep *> one))
                 <|>
             pure [])
-            
-            -- (some parseKeyValueJson <|> pure [])
     )
     <* wsnlOptional
     <* tokenP TokenEndMapping
@@ -433,9 +386,6 @@ parseJsonMap =
         sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
         one :: Parser (String, Document)
         one = wsnlOptional *> parseKeyValueJson <* wsnlOptional
-        -- where
-        --     one :: Parser (String, Document)
-        --     one = wsnlOptional *> parseJsonLike <* wsnlOptional
 
 parseNull :: Parser Document
 parseNull = const DNull <$> tokenP TokenScalarNull
@@ -481,9 +431,7 @@ parseList :: Parser Document
 parseList = DList <$> some one
     where
         one :: Parser Document
-        one = tokenP TokenDashListItem *> wsOptional *> parseYaml <* wsOptional <* nlOptional
-        -- one = tokenP TokenDashListItem *> parseYaml <* end
-        -- element = 
+        one = tokenP TokenDashListItem *> wsnlOptional *> parseYaml <* wsOptional <* nlOptional
 
 parseIndented :: Parser Document
 -- parseIndented = nlOptional *> tokenP (TokenSpaceDiff 0) *> parseYaml <* tokenP (TokenSpaceDiff 0)
@@ -500,19 +448,19 @@ parseMap = DMap <$> some parseKeyValue
 
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
-      (\key _ value -> (key, value)) <$> getString <*>
+      (\key _ value -> (key, value)) <$> getStringified <*>
       ( tokenP TokenKeyColon <* wsOptional) <*>
       parseYaml <* wsnlOptional
 
 parseKeyValueJson :: Parser (String, Document)
 parseKeyValueJson =
-      (\key _ value -> (key, value)) <$> getString <*>
+      (\key _ value -> (key, value)) <$> getStringified <*>
       ( tokenP TokenKeyColon <* wsOptional) <*>
       parseJsonLike <* wsnlOptional
 
-getString :: Parser String
-getString =
-    (\string -> (toYamlStr string)) <$> (tokenP (TokenScalarString ""))
+-- TODO: non-string keys are supported, but not
+getStringified :: Parser String
+getStringified = toYamlStr <$> scalarTokenP
 
     -- toYamlStr <$> parseScalar
 -- parseKeyValue =  <*> tokenP TokenKeyColon *> wsOptional *> parseScalar

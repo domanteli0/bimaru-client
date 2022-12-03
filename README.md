@@ -16,8 +16,9 @@ Steps:
 6. Run `stack run -- $YOUR_TOKEN` play a game
 
 NOTES:
-* To run lib2: `stack run bimaru-client-2 -- $BIMARU_TOKEN`
+* To run lib2: `stack run bimaru-client-3 -- $BIMARU_TOKEN`
 * To test: `stack test`
+* To test specific QuickTest: `stack test --test-arguments='--quickcheck-replay=<number>'`
 
 Some other notes:
 - On Windows you might need to install "Msys2"

@@ -127,8 +127,8 @@ tokenizeYaml str = pipeline str
         tokenizeYaml' "" = []
         -- special cases, i.e. hacky work arrounds
         -- fix `getStr` to remove these
-        tokenizeYaml' "\"\"\n" = [TokenScalarString ""]
-        tokenizeYaml' "''\n" = [TokenScalarString ""]
+        -- tokenizeYaml' "\"\"\n" = [TokenScalarString ""]
+        -- tokenizeYaml' "''\n" = [TokenScalarString ""]
         -- 
         tokenizeYaml' str' =  do
             let (tokens, left) = tokenize str'
@@ -255,15 +255,17 @@ tokenizeYaml str = pipeline str
                     stringA = getStr string '\'' '\\'
 
                     getStr :: String -> Char -> Char -> (String, String)
-                    getStr s char excl = do
-                        let str'' = drop 1 s
-                        let (striped, left) = span (/= char) str''
-                        if last striped /= excl then
-                            (striped, drop 1 left)
-                        else
-                            let (striped', left') = getStr left char excl
-                                striped'' = striped ++ [char] ++ striped'
-                            in (striped'', left')
+                    getStr s char excl
+                        | head (drop 1 s) == char = ("", drop 2 s)
+                        | otherwise = do
+                            let str'' = drop 1 s
+                            let (striped, left) = span (/= char) str''
+                            if last striped /= excl then
+                                (striped, drop 1 left)
+                            else
+                                let (striped', left') = getStr left char excl
+                                    striped'' = striped ++ [char] ++ striped'
+                                in (striped'', left')
 
                     -- functions for scalars
                     getUnknown :: String -> ([Token], String)

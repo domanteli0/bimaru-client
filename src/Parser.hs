@@ -120,16 +120,10 @@ tokenizeYaml :: String -> [Token]
 tokenizeYaml "" = []
 tokenizeYaml str = pipeline str
     where
-        -- pipeline str' = (splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n") -- ++[TokenEndOfDocument]
         pipeline str' = (splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n") -- ++[TokenEndOfDocument]
 
         tokenizeYaml' :: String -> [Token]
         tokenizeYaml' "" = []
-        -- special cases, i.e. hacky work arrounds
-        -- fix `getStr` to remove these
-        -- tokenizeYaml' "\"\"\n" = [TokenScalarString ""]
-        -- tokenizeYaml' "''\n" = [TokenScalarString ""]
-        -- 
         tokenizeYaml' str' =  do
             let (tokens, left) = tokenize str'
             if left /= "" then tokens ++ tokenizeYaml' left else tokens
@@ -187,7 +181,7 @@ tokenizeYaml str = pipeline str
         diff (_:_) = undefined
         diff [] = []
 
-                -- this should fix testCase "Complex list"
+        -- this should fix testCase "Complex list"
         -- |-         |
         -- |  -       | <-  TokenSpaceDiff 2
         -- |    - foo | <-  TokenSpaceDiff 2
@@ -213,7 +207,7 @@ tokenizeYaml str = pipeline str
                                 -- equal decrese and increase
                                 if a + ind == 0 then splitDiff' ts acc' (ts' ++ [TokenSpaceDiff ind])
                                 -- decrese and increase don't match
-                                else splitDiff' (TokenSpaceDiff (a + ind):ts) acc' (ts' ++ [TokenSpaceDiff (ind)])
+                                else splitDiff' (TokenSpaceDiff (a + ind):ts) acc' (ts' ++ [TokenSpaceDiff (a +ind)])
                     -- incline, save to acc
                     | ind > 0 = splitDiff' ts (ind:acc) (ts' ++ [TokenSpaceDiff ind])
                 splitDiff' (t:ts) acc ts' = splitDiff' ts acc (ts' ++ [t])
@@ -231,6 +225,7 @@ tokenizeYaml str = pipeline str
 
         tokenize :: String -> ([Token], String)
         tokenize string
+            -- -- | "- - " `isPrefixOf` string = ([TokenDashListItem, TokenNewLine], drop 2 string)
             | "- " `isPrefixOf` string = ([TokenDashListItem], drop 2 string)
             | "-\n" `isPrefixOf` string = ([TokenDashListItem, TokenNewLine], drop 2 string)
             | "[" `isPrefixOf` string = ([TokenBeginBracketList], drop 1 string)
@@ -296,7 +291,7 @@ parse str = do
     (doc, _) <- runParser parseYaml tokens
     return doc
 
-parseYaml =  parseMap <|> parseIndented <|> parseList <|> parseJsonLike
+parseYaml =  parseIndented <|> parseMap <|> parseList <|> parseJsonLike
 parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
 parseScalar =  parseNull <|> parseNumber <|> parseString
 
@@ -433,7 +428,10 @@ parseList :: Parser Document
 parseList = DList <$> some one
     where
         one :: Parser Document
-        one = tokenP TokenDashListItem *> wsnlOptional *> parseYaml <* wsOptional <* nlOptional
+        one =
+            tokenP TokenDashListItem *> wsnlOptional *> 
+            parseYaml 
+            <* wsnlOptional
 
 parseIndented :: Parser Document
 -- parseIndented = nlOptional *> tokenP (TokenSpaceDiff 0) *> parseYaml <* tokenP (TokenSpaceDiff 0)
@@ -443,7 +441,7 @@ parseIndented =
     <* wsOptional <* nlOptional <* sdOptional
 
 parseMap :: Parser Document
-parseMap = DMap <$> some parseKeyValue
+parseMap = DMap <$> some (parseKeyValue)
 
 -- parseKey :: Parser String
 -- parseKey = fmap toYamlStr parseScalar
@@ -451,7 +449,7 @@ parseMap = DMap <$> some parseKeyValue
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
       (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsOptional) <*>
+      ( tokenP TokenKeyColon <* wsnlOptional) <*>
       parseYaml <* wsnlOptional
 
 parseKeyValueJson :: Parser (String, Document)

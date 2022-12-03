@@ -78,8 +78,7 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
       TokenNewLine
     ]
   , testCase "TODO: Test case name" $
-    -- init is needed because unlines produces an additional newline
-      tokenizeYaml (init $ unlines [
+      tokenizeYaml (unlines [
           "- \"test",
           " test \\\"",
           "",
@@ -92,7 +91,8 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
           TokenDashListItem,
           TokenScalarString "test\n test \\\"\n\n- ", TokenNewLine,
           TokenDashListItem, TokenNewLine,
-          TokenSpaceDiff 2, TokenDashListItem, TokenScalarString "test", TokenNewLine
+          TokenSpaceDiff 2, TokenDashListItem, TokenScalarString "test", TokenNewLine,
+          TokenSpaceDiff (-2), TokenNewLine
         ]
     , testCase "Nested list" $ tokenizeYaml (unlines [
         "List:",
@@ -112,8 +112,7 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         TokenScalarString "List", TokenKeyColon, TokenNewLine,
         TokenSpaceDiff 2, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
         TokenDashListItem, TokenScalarInt 9, TokenNewLine,
-        --                                  TODO: fix this  👇 should be (-2)
-        TokenDashListItem, TokenScalarNull, TokenSpaceDiff (-4), TokenSpaceDiff (-2), TokenNewLine
+        TokenDashListItem, TokenScalarNull, TokenNewLine, TokenSpaceDiff (-2), TokenSpaceDiff (-2), TokenNewLine
       ]
   ]
 
@@ -324,7 +323,19 @@ fromYamlTests = testGroup "Document from yaml"
           "  key1: value1",
           "key: value"
         ]) @?= Right (DMap [("keys", DMap [("key0", DString "value0"), ("key1", DString "value1")]), ("key", DString "value")])
-      -- , testCase "Keyless map" $ parseDocument (unlines [ ": value" ]) @?= Left "TODO"
+      , testCase "problematic #1" $ parseDocument ( unlines [
+            "jy:",
+            "- ' 1'"
+          ])
+        @?=
+          Right (DMap [("jy",DList [DString " 1"])])
+      , testCase "problematic #2" $ parseDocument (unlines [
+              "- - []"
+            , "  - ' 7o5'"
+            , "- -2"
+          ])
+        @?=
+          Right (DList [DList [DList [],DString " 7o5"],DInteger (-2)])
       , testCase "Keyless map" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument (unlines [ ": value" ])
       , testCase "key:key:value madness" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft (parseDocument "key: key: value")
       , testCase "too key:key too value" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument "key: key: value: value"

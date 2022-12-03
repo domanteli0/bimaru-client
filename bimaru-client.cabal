@@ -28,7 +28,7 @@ library
       Lib1
       Lib2
       Lib3
-      ParserRefac
+      Parser
       Types
   other-modules:
       Paths_bimaru_client

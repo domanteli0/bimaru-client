@@ -4,7 +4,7 @@
 -- TODO: move `tokenizeYaml`, `Token` to an internal module
 module Lib3(hint, gameStart, parseDocument, tokenizeYaml, Token, GameStart, Hint) where
 
-import ParserRefac(parse, Token, tokenizeYaml)
+import Parser(parse, Token, tokenizeYaml)
 import Types ( FromDocument(..), Document(..), Coord(Coord) )
 import Lib1 (State(..))
 

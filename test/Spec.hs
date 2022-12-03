@@ -10,7 +10,7 @@ import Data.Yaml as Y ( encode )
 import Lib1 (State(..), emptyState)
 import Lib2 (renderDocument, gameStart, hint)
 import Lib3 (parseDocument, tokenizeYaml)
-import ParserRefac (Token(..), tokenizeYaml)
+import Parser (Token(..), tokenizeYaml)
 import Types (Document(..), Coord(..))
 import Data.Aeson.Types (parse)
 import Data.Either
@@ -141,8 +141,8 @@ fromYamlTests = testGroup "Document from yaml"
           "[4, 5, 6, \"lol\",'no']"
             @?=
               Right (DList [DInteger 4, DInteger 5, DInteger 6, DString "lol", DString "no"])
-      , testCase "JSON like" $ parseDocument "[key: value, 5, \"lol\", {key: 'value', key1: value1 }]" @?=
-          Right (DList [DMap [("key", DString "Value")], DInteger 5, DString "lol", DMap [("key", DString "value"), ("key1", DString "value1")]])
+      , testCase "JSON like" $ parseDocument "- [key: value, 5, \"lol\", {key: 'value', key1: value1 }]" @?=
+          Right (DList [DList [DMap [("key", DString "Value")], DInteger 5, DString "lol", DMap [("key", DString "value"), ("key1", DString "value1")]]])
       , testCase "List of one" $ parseDocument "- 5" @?= Right (DList [DInteger 5])
       , testCase "List of one" $ parseDocument "-\n  5" @?= Right (DList [DInteger 5])
       , testCase "Simple simple list" $ parseDocument (unlines [
@@ -166,118 +166,127 @@ fromYamlTests = testGroup "Document from yaml"
         ])
           @?=
             Right (DList [DString "asd", DList [DString "lol"], DString "nice", DNull])
-        , testCase "Complex list" $ parseDocument (unlines [
-            "- 1 1",
-            "- 2 2",
-            "- foo-123",
-            "- foobar",
-            "-",
-            "  - \"value\"",
-            "  -",
-            "     - FOO",
-            "     - bar",
-            "  - 123",
-            "-",
-            "   -"  ,
-            "       - see",
-            "-",
-            "     -",
-            "       - pee",
-            "       - hee",
-            "     - BAR",
-            "- asd"
-          ]) @?= Right (
-              DList [
-                DString "1 1",
-                DString "2 2",
-                DString "foo-123",
-                DString "foobar",
-                DList [
-                  DString "value",
-                  DList [DString "FOO", DString "bar"],
-                  DInteger 123
-                ],
-                DList [DList [ DString "see"]],
-                DList [DList [
-                    DString "pee",
-                    DString "hee"
-                  ],
-                  DString "BAR"
-                ],
-                DString "asd"
-              ]
-            )
-        , testCase "Complex /w only problematic part" $ parseDocument (unlines [
-            "-",
-            "   -"  ,
-            "       - see",
-            "-",
-            "     -",
-            "       - pee",
-            "       - hee",
-            "     - BAR",
-            "- asd"]) @?= Right (DList [
-                DList [DList [ DString "see"]],
-                DList [ DList [
-                    DString "pee",
-                    DString "hee"
-                  ],
-                  DString "BAR"
-                ],
-                DString "asd"
-            ])
-        , testCase "List ending with indentation" $ parseDocument (unlines [
-            "- 5",
-            "-",
-            "   -",
-            "      -",
-            "         lll",
-            "   - ll"
+      , testCase "Complex list" $ parseDocument (unlines [
+          "- 1 1",
+          "- 2 2",
+          "- foo-123",
+          "- foobar",
+          "-",
+          "  - \"value\"",
+          "  -",
+          "     - FOO",
+          "     - bar",
+          "  - 123",
+          "-",
+          "   -"  ,
+          "       - see",
+          "-",
+          "     -",
+          "       - pee",
+          "       - hee",
+          "     - BAR",
+          "- asd"
         ]) @?= Right (
-          DList [
-            DInteger 5,
-            DList [DList [DString "lll"], DString "ll"]
-          ])
-        , testCase "list with 'clif'" $ parseDocument (unlines [
-            "-",
-            "   -",
-            "      lll",
-            "- ll"
-      ]) @?= Right(DList [DList [DString "lll"], DString "ll"])
-        , testCase "Lists with 'clifs'" $ parseDocument (unlines [
-            "-",
-            "   -"  ,
-            "       - see",
-            "   -",
-            "       -",
-            "         - bee",
-            "   -",
-            "       -",
-            "           - high",
-            "- 5",
-            "-",
-            "   -",
-            "      -",
-            "         lll",
-            "- ll"
-        ]) @?= Right (
-          DList [
             DList [
-              DList [DString "see"],
-              DList [DList [DString "bee"]],
-              DList [DList [DString "high"]]
-            ],
-            DInteger 5,
-            DList [DList [DString "lll"]],
-            DString "ll"
+              DString "1 1",
+              DString "2 2",
+              DString "foo-123",
+              DString "foobar",
+              DList [
+                DString "value",
+                DList [DString "FOO", DString "bar"],
+                DInteger 123
+              ],
+              DList [DList [ DString "see"]],
+              DList [DList [
+                  DString "pee",
+                  DString "hee"
+                ],
+                DString "BAR"
+              ],
+              DString "asd"
+            ]
+          )
+      , testCase "Complex /w only problematic part" $ parseDocument (unlines [
+          "-",
+          "   -"  ,
+          "       - see",
+          "-",
+          "     -",
+          "       - pee",
+          "       - hee",
+          "     - BAR",
+          "- asd"]) @?= Right (DList [
+              DList [DList [ DString "see"]],
+              DList [ DList [
+                  DString "pee",
+                  DString "hee"
+                ],
+                DString "BAR"
+              ],
+              DString "asd"
           ])
-        , testCase "Simple mapping" $ parseDocument (unlines [
+      , testCase "List ending with indentation" $ parseDocument (unlines [
+          "- 5",
+          "-",
+          "   -",
+          "      -",
+          "         lll",
+          "   - ll"
+      ]) @?= Right (
+        DList [
+          DInteger 5,
+          DList [DList [DString "lll"], DString "ll"]
+        ])
+      , testCase "list with 'clif'" $ parseDocument (unlines [
+          "-",
+          "   -",
+          "      lll",
+          "- ll"
+    ]) @?= Right(DList [DList [DString "lll"], DString "ll"])
+      , testCase "Lists with 'clifs'" $ parseDocument (unlines [
+          "-",
+          "   -"  ,
+          "       - see",
+          "   -",
+          "       -",
+          "         - bee",
+          "   -",
+          "       -",
+          "           - high",
+          "- 5",
+          "-",
+          "   -",
+          "      -",
+          "         lll",
+          "- ll"
+      ]) @?= Right (
+        DList [
+          DList [
+            DList [DString "see"],
+            DList [DList [DString "bee"]],
+            DList [DList [DString "high"]]
+          ],
+          DInteger 5,
+          DList [DList [DString "lll"]],
+          DString "ll"
+        ])
+      , testCase "Simple mapping" $ parseDocument (unlines [
+        "key1: value1",
+        "key2: value2",
+        "key3: value3"
+      ])
+        @?=
+          Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3")])
+      , testCase "Mapping with a list" $ parseDocument (unlines [
           "key1: value1",
-          "key2: value2",
+          "key2:",
+          "  - foo",
+          "  - bar",
           "key3: value3"
         ])
           @?=
-            Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3")])
+            Right (DMap [("key1", DString "value1"), ("key2", DList [DString "foo", DString "bar"]), ("key3", DString "value3")])
       , testCase "Single nl scalar" $ parseDocument (unlines [
             "-",
             "  5",

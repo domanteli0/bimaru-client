@@ -5,7 +5,7 @@
 {-# HLINT ignore "Eta reduce" #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE InstanceSigs #-}
-module ParserRefac(parse, Token(..), test1, test2, test3, test4, tokenizeYaml) where
+module Parser(parse, Token(..), test1, test2, test3, test4, tokenizeYaml) where
 
 import Types(Document(..), ToDocument, toDocument)
 -- import qualified Control.Monad.Trans.Error
@@ -59,9 +59,9 @@ instance Alternative Parser where
 --     -- (Parser ([Token] -> Either String (Document, [Token]))) >>= func = func ()
 --     (Parser a) >>= func = func a
 
-test1 = "[]"
+test1 = "[5, key: value, {key: 'value'}]"
 test2 = "[1]"
-test3 = "[1, 2]"
+test3 = "[1, \n2]"
 test4 = "[1,]"
 
 -- test1 = unlines [
@@ -333,8 +333,8 @@ parse str = do
 
 -- parseYaml = parseNull <|> parseNumber <|> parseString <|> parseList
 parseYaml =  parseMap <|> parseIndented <|> parseList <|> parseJsonLike
-parseJsonLike = parseJsonList <|> parseScalar
-parseScalar =  parseNull <|> parseNumber <|> parseString
+parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
+parseScalar =  parseNull <|> parseNumber <|> parseString <|> parseJsonMap'
 
 tokenPFac :: (Token -> Token -> Bool) -> (Token -> Parser Token)
 tokenPFac cmpFunc = tokenP'
@@ -374,38 +374,68 @@ dumbCmp (TokenScalarString _) (TokenScalarString _) = True
 dumbCmp (TokenSpaceDiff _) (TokenSpaceDiff _) = True
 dumbCmp t1 t2 = t1 == t2
 
--- parseSpecialCases = 
-
 singleton :: a -> [a]
 singleton a = [a]
 
 parseJsonList =
     tokenP TokenBeginBracketList *>
     (
-        -- [], [x]
-        -- DList <$> (((((:) <$> last') <*> (many one))) <|> pure [])
-
-        DList <$> 
-            ((((:) <$> one) 
+        DList <$>
+            ((((:) <$> one)
                 <*>
-            (many ((wsnlOptional *> tokenP TokenCollectionSep <* wsOptional) *> one)))
+            many (sep *> one))
                 <|>
             pure [])
     )
     <* tokenP TokenEndBracketList
+        where
+            -- sep :: Parser Document
+            sep :: Parser Token
+            sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
+            one :: Parser Document
+            one = wsnlOptional *> parseJsonLike <* wsnlOptional
 
--- one' :: Parser [Document
--- one' = 
+-- parseJsonMap = DMap <$> (some parseKeyValueJson <|> pure [])
+parseJsonMap' =
+    wsnlOptional *>
+    (
+        DMap <$> some parseKeyValueJson
+    )
+    <* wsnlOptional
 
-one :: Parser Document
-one =
-    wsnlOptional *> parseJsonLike <* wsnlOptional
-last' :: Parser Document
-last' =
-    wsnlOptional *> parseJsonLike <* wsnlOptional
-    -- <* wsOptional <* nlOptional
-    -- where
-    --     one = 
+parseJsonMap =
+    tokenP TokenBeginMapping *>
+    wsnlOptional *>
+    (
+        -- DList <$>
+        --     ((((:) <$> one)
+        --         <*>
+        --     many (sep *> one))
+        --         <|>
+        --     pure [])
+
+        -- DMap <$> 
+        --     (some parseKeyValueJson <|> pure [])
+
+        DMap <$> 
+            ((((:) <$> one)
+                <*>
+            many (sep *> one))
+                <|>
+            pure [])
+            
+            -- (some parseKeyValueJson <|> pure [])
+    )
+    <* wsnlOptional
+    <* tokenP TokenEndMapping
+    where
+        sep :: Parser Token
+        sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
+        one :: Parser (String, Document)
+        one = wsnlOptional *> parseKeyValueJson <* wsnlOptional
+        -- where
+        --     one :: Parser (String, Document)
+        --     one = wsnlOptional *> parseJsonLike <* wsnlOptional
 
 parseNull :: Parser Document
 parseNull = const DNull <$> tokenP TokenScalarNull
@@ -472,7 +502,13 @@ parseKeyValue :: Parser (String, Document)
 parseKeyValue =
       (\key _ value -> (key, value)) <$> getString <*>
       ( tokenP TokenKeyColon <* wsOptional) <*>
-      parseYaml <* wsOptional <* nlOptional
+      parseYaml <* wsnlOptional
+
+parseKeyValueJson :: Parser (String, Document)
+parseKeyValueJson =
+      (\key _ value -> (key, value)) <$> getString <*>
+      ( tokenP TokenKeyColon <* wsOptional) <*>
+      parseJsonLike <* wsnlOptional
 
 getString :: Parser String
 getString =

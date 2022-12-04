@@ -278,6 +278,14 @@ fromYamlTests = testGroup "Document from yaml"
       ])
         @?=
           Right (DMap [("key1", DString "value1"), ("key2", DString "value2"), ("key3", DString "value3")])
+      , testCase "Nested mapping" $ parseDocument (unlines [
+        "key:",
+        "    key:",
+        "      - fml",
+        "      - end mi"
+      ])
+        @?=
+          Right (DMap [("key", DMap [("key", DList [DString "fml", DString "end mi"])])])
       , testCase "Mapping with a list" $ parseDocument (unlines [
           "key1: value1",
           "key2:",
@@ -287,6 +295,44 @@ fromYamlTests = testGroup "Document from yaml"
         ])
           @?=
             Right (DMap [("key1", DString "value1"), ("key2", DList [DString "foo", DString "bar"]), ("key3", DString "value3")])
+      , testCase "List with a map" $ parseDocument (unlines [
+          "- key: stuff",
+          "  key1: studd",
+          "- 666"
+        ])
+          @?=
+            Right (DList [DMap [("key", DString "stuff"), ("key1", DString "studd")], DInteger 666])
+      , testCase "List with a nested map" $ parseDocument (unlines [
+          "- key:",
+          "    key:",
+          "      - fml",
+          "      - end me",
+          "  key1: studd",
+          "- 666"
+        ])
+          @?=            
+            Right (DList [
+              DMap [
+                ("key", 
+                  DMap [("key", DList [DString "fml", DString "end me"])]),
+                ("key1", DString "studd")], 
+              DInteger 666])
+      , testCase "List (nl between `-` and map) with a nested map" $ parseDocument (unlines [
+          "- ",
+          "  key:",
+          "    key:",
+          "      - fml",
+          "      - end me",
+          "  key1: studd",
+          "- 666"
+        ])
+          @?=
+            Right (DList [
+              DMap [
+                ("key", 
+                  DMap [("key", DList [DString "fml", DString "end me"])]),
+                ("key1", DString "studd")], 
+              DInteger 666])
       , testCase "Single nl scalar" $ parseDocument (unlines [
             "-",
             "  5",
@@ -347,10 +393,23 @@ fromYamlTests = testGroup "Document from yaml"
             "- -2"
           ])
         @?=
-          Right (DList 
+          Right (DList
           [
             DList [DList [DInteger 0, DString " 7o5"], DInteger 7], DInteger (-2),
             DList [DList [DInteger 0, DString " 7o5"], DInteger 7], DInteger (-2)
+          ])
+      , testCase "problematic #3" $ parseDocument (unlines [
+            "- bejjKf: -3",
+            "  FYVfRg: ' '",
+            "  I: []",
+            "  Omc: 2 o",
+            "- ''"
+          ])
+        @?=
+          Right (DList
+          [
+            DMap [("bejjKf", DInteger (-3)), ("FYVfRg", DString " "), ("I", DList []), ("Omc", DString "2 o")]
+            , DString ""
           ])
       , testCase "Keyless map" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument (unlines [ ": value" ])
       , testCase "key:key:value madness" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft (parseDocument "key: key: value")

@@ -106,10 +106,16 @@ isTokenSpaceDiff _                  = False
 isTokenKeyColon TokenKeyColon  = True
 isTokenKeyColon _              = False
 
+isTokenDashListItem TokenDashListItem = True
+isTokenDashListItem _ = False
+
 removeTokenSpaceDiff :: [Token] -> [Token]
 removeTokenSpaceDiff ((TokenSpaceDiff _):ts) = ts
 removeTokenSpaceDiff ts = ts
 
+removeTokenDashListItem :: [Token] -> [Token]
+removeTokenDashListItem (TokenDashListItem:ts) = ts
+removeTokenDashListItem ts = ts
 -- isTokenEndOfDocument TokenEndOfDocument = True
 -- isTokenEndOfDocument _ = False
 --                         Indentation Token on the line
@@ -121,11 +127,48 @@ instance ToDocument Token where
     toDocument TokenScalarNull = DNull
     toDocument _ = undefined
 
+-- -- -- war crimes -- -- --
+
 tokenizeYaml :: String -> [Token]
 tokenizeYaml "" = []
 tokenizeYaml str = pipeline str
     where
-        pipeline str' = (normalizeDashListItem . splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n") -- ++[TokenEndOfDocument]
+        pipeline str' = (
+            normalizeDashListItem .
+            splitDiff .
+            diff .
+            normalizeWhitespace .
+            parseScalarToken .
+            joinBetweenScalar .
+            joinUnknown .
+            tokenizeYaml' .
+            ensureNL
+            ) (str' ++ "\n")
+        -- pipeline str' = (normalizeDashListItem . splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n")
+        -- pipeline str' = (normalizeDashListItem . splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n")
+
+        -- This changes lines like these:
+        -- '- stuff:<...>'
+        -- '  fml:<...>'
+        --   into
+        -- '-         '
+        -- '  stuff'
+        -- '  fml'
+        -- normalizeDashListMap :: [Token] -> [Token]
+        -- normalizeDashListMap tkns = snd $ normalizeDashListMap' (tkns, [])
+        --     where
+        --         normalizeDashListMap' :: ([Token], [Token]) -> ([Token], [Token])
+        --         normalizeDashListMap' ([], ts') = ([], ts')
+        --         normalizeDashListMap' (TokenDashListItem:TokenNewLine:ts, ts' ) =
+        --             normalizeDashListMap' (ts, ts' ++ [TokenDashListItem, TokenNewLine])
+        --         normalizeDashListMap' (TokenDashListItem:ts, ts' ) = do
+        --             let (bef, after) = break isTokenDashListItem ts
+
+        --             normalizeDashListMap' (
+        --                     bef ++ [TokenSpaceDiff (-2)] ++ after,
+        --                     ts' ++ [TokenDashListItem, TokenNewLine, TokenSpaceDiff 2]
+        --                 )
+        --         normalizeDashListMap' (tkn:ts, ts') = normalizeDashListMap' (ts, ts' ++ [tkn])
 
         -- Currently, this doesn't handle cases when there is a `TokenSpace` between `TokenDashListItem`s
         -- multiline json like lists and mappings are also unsupported
@@ -143,12 +186,11 @@ tokenizeYaml str = pipeline str
                 normalizeDashListItem' :: ([Token], [Token]) -> ([Token], [Token])
                 normalizeDashListItem' ([], ts') = ([], ts')
                 normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts, ts' ) = do
-                    -- let (bef, diff:after) = break isTokenSpaceDiff ts
                     let (bef, after) = break isTokenSpaceDiff ts
 
                     normalizeDashListItem' (
                             TokenDashListItem:(bef ++ removeTokenSpaceDiff after),
-                            ts' ++ [TokenDashListItem, TokenSpaceDiff 2]
+                            ts' ++ [TokenDashListItem, TokenNewLine, TokenSpaceDiff 2]
                         )
                 normalizeDashListItem' (tkn:ts, ts') = normalizeDashListItem' (ts, ts' ++ [tkn])
 
@@ -334,15 +376,20 @@ tokenizeYaml str = pipeline str
 -- if, by now, you're wondering if the whole
 --  ~ ~ l e t ' s  t o k e n i z e ~ ~ thing was a mistake, it was
 
+-- -- -- parsing -- -- --
+
 parse :: String -> Either String Document
 parse str = do
     let tokens = tokenizeYaml str
     (doc, _) <- runParser parseYaml tokens
     return doc
 
-parseYaml =  parseIndented <|> parseMap <|> parseList <|> parseJsonLike
+parseYaml = parseIndented <|> parseMap <|> parseList <|> parseJsonLike
+-- parseYaml =  parseIndented <|> parseMap <|> parseListOnNL <|> parseJsonLike
 parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
-parseScalar =  parseNull <|> parseNumber <|> parseString
+parseScalar =  parseNull <|> parseNumber <|> parseString -- <|> parseLast
+-- overlapping parsers of last priority
+-- parseLast = parseListOnNL
 
 tokenPFac :: (Token -> Token -> Bool) -> (Token -> Parser Token)
 tokenPFac cmpFunc = tokenP'
@@ -470,32 +517,131 @@ wsnlOptional = spanP (\t -> isTokenSpace t || isTokenNewLine t)
 sdOptional :: Parser Token
 sdOptional = tokenPOptional (TokenSpaceDiff 0)
 
+sdStrict :: Parser Token
+sdStrict = tokenP (TokenSpaceDiff 0)
+
 nlStrict :: Parser Token
 nlStrict = tokenP TokenNewLine
 
 parseList :: Parser Document
-parseList = DList <$> some one
+-- parseList = DList <$> (sdOptional *> some one)
+parseList = DList <$> (
+            (((:) <$> first') <*> some one)
+        <|> (((:) <$> first') <*> pure [])
+        <|> (((:) <$> first) <*> some one) 
+        <|> (((:) <$> first) <*> pure [])
+        -- some one 
+        )
     where
+        first' :: Parser Document
+        first' = 
+            tokenP TokenDashListItem *> wsOptional *>
+            parseYaml
+            <* wsnlOptional <* sdStrict
+        first :: Parser Document
+        first =
+            tokenP TokenDashListItem *> wsnlOptional *> sdStrict *>
+            parseYaml
+            <* wsnlOptional
         one :: Parser Document
         one =
             tokenP TokenDashListItem *> wsnlOptional *>
+            -- parseYaml
+
+            -- the full set:
+            -- parseMapOnList <|> parseIndented <|> parseMap <|> parseList <|> parseJsonLike
+            -- parseMapOnList <|> parseIndented <|> parseMap <|> parseJsonLike
             parseYaml
+            -- parseMapOnList <|> parseIndented <|> parseMap <|> parseList <|> parseJsonLike
             <* wsnlOptional
+
+-- parseListWithMap :: Parser Document
+-- parseListWithMap = DList <$> some one
+--     where
+--         one :: Parser Document
+--         one =
+--             tokenP TokenDashListItem *> wsnlOptional *>
+--             -- parseYaml
+
+--             -- the full set:
+--             -- parseMapOnList <|> parseIndented <|> parseMap <|> parseList <|> parseJsonLike
+--             -- parseMapOnList <|> parseIndented <|> parseMap <|> parseJsonLike
+--             parseMapOnList <|> parseJsonLike
+--             -- parseMapOnList <|> parseIndented <|> parseMap <|> parseList <|> parseJsonLike
+--             <* wsnlOptional
+
+
+-- parseListOnNL :: Parser Document
+-- parseListOnNL = DList <$> one
+--     where
+--         one :: Parser [Document]
+--         one =
+--             tokenP TokenDashListItem *> wsnlOptional *> sdOptional *>
+--             many parseYaml
+--             <* wsnlOptional <* sdOptional
+
+-- parseListOnNL :: Parser Document
+-- parseListOnNL = DList <$> some one
+--     where
+--         one :: Parser Document
+--         one =
+--             tokenP TokenDashListItem *> wsnlOptional *> sdStrict *>
+--             parseYaml
+--             <* wsnlOptional
 
 parseIndented :: Parser Document
 parseIndented =
-    nlOptional *> tokenP (TokenSpaceDiff 0) *>
+    nlOptional *> sdStrict *>
     parseYaml
     <* wsOptional <* nlOptional <* sdOptional
 
 parseMap :: Parser Document
-parseMap = DMap <$> some parseKeyValue
+parseMap = DMap <$> (some one <|> (((:) <$> first) <*> some one))
+-- parseMap = DMap <$> (some parseKeyValue)
+    where
+        first :: Parser (String, Document)
+        first = parseKeyValue <* sdStrict
+        one :: Parser (String, Document)
+        one = parseKeyValue
+
+-- parseListWithNL :: Parser Document
+-- parseListWithNL = DList <$> all'
+--     where
+--         all' :: Parser [Document]
+--         all' = ((:) <$> first) <*> rest
+--         first :: Parser Document
+--         first =
+--             tokenP TokenDashListItem *> wsnlOptional *>
+--             parseYaml
+--             <* wsnlOptional <* sdStrict
+
+--         rest :: Parser [Document]
+--         rest = some one
+
+--         one :: Parser Document
+--         one =
+--             tokenP TokenDashListItem *> wsnlOptional *>
+--             parseYaml
+--             <* wsnlOptional
+
+parseMapOnList :: Parser Document
+parseMapOnList = DMap <$> (((:) <$> first) <*> rest <* sdStrict)
+    where
+        first :: Parser (String, Document)
+        first =
+            (\key _ value -> (key, value)) <$> getStringified <*>
+            ( tokenP TokenKeyColon <* wsnlOptional) <*>
+            parseYaml <* wsnlOptional <* sdStrict
+
+        rest :: Parser [(String, Document)]
+        rest = some parseKeyValue
 
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
       (\key _ value -> (key, value)) <$> getStringified <*>
       ( tokenP TokenKeyColon <* wsnlOptional) <*>
       parseYaml <* wsnlOptional
+
 
 parseKeyValueJson :: Parser (String, Document)
 parseKeyValueJson =

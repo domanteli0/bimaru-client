@@ -29,9 +29,10 @@ test1 = unlines [
 
 test2 :: String
 test2 = unlines [
-          "- - 0"
-        , "  - ' 7o5'"
-        , "- -2"
+        "- key: stuff",
+        "  key1: studd",
+        "  key2: stuss",
+        "- 666"
     ]
 
 test3 :: String

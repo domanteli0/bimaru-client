@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
 {-# HLINT ignore "Eta reduce" #-}
-module Parser(parse, Token(..), tokenizeYaml) where
+module Parser(parse, Token(..), tokenizeYaml, first, last', one) where
 
 -- TODO: remove Testing
 import Testing
@@ -528,16 +528,17 @@ parseList :: Parser Document
 parseList = DList <$> (
         --     (((:) <$> first') <*> some one)
         -- <|> (((:) <$> first') <*> pure [])
-            (((:) <$> first) <*> some one) 
-        <|> some one 
+            -- (((:) <$> first) <*> some one) 
+
+            some one
         <|> (((:) <$> first) <*> pure [])
         )
     where
-        first' :: Parser Document
-        first' = 
-            tokenP TokenDashListItem *> wsOptional *>
-            parseYaml
-            <* wsnlOptional <* sdStrict
+        -- first' :: Parser Document
+        -- first' = 
+        --     tokenP TokenDashListItem *> wsOptional *>
+        --     parseYaml
+        --     <* wsnlOptional <* sdStrict
         first :: Parser Document
         first =
             tokenP TokenDashListItem *> wsnlOptional *> sdStrict *>
@@ -546,48 +547,8 @@ parseList = DList <$> (
         one :: Parser Document
         one =
             tokenP TokenDashListItem *> wsnlOptional *>
-            -- parseYaml
-
-            -- the full set:
-            -- parseMapOnList <|> parseIndented <|> parseMap <|> parseList <|> parseJsonLike
-            -- parseMapOnList <|> parseIndented <|> parseMap <|> parseJsonLike
             parseYaml
-            -- parseMapOnList <|> parseIndented <|> parseMap <|> parseList <|> parseJsonLike
             <* wsnlOptional
-
--- parseListWithMap :: Parser Document
--- parseListWithMap = DList <$> some one
---     where
---         one :: Parser Document
---         one =
---             tokenP TokenDashListItem *> wsnlOptional *>
---             -- parseYaml
-
---             -- the full set:
---             -- parseMapOnList <|> parseIndented <|> parseMap <|> parseList <|> parseJsonLike
---             -- parseMapOnList <|> parseIndented <|> parseMap <|> parseJsonLike
---             parseMapOnList <|> parseJsonLike
---             -- parseMapOnList <|> parseIndented <|> parseMap <|> parseList <|> parseJsonLike
---             <* wsnlOptional
-
-
--- parseListOnNL :: Parser Document
--- parseListOnNL = DList <$> one
---     where
---         one :: Parser [Document]
---         one =
---             tokenP TokenDashListItem *> wsnlOptional *> sdOptional *>
---             many parseYaml
---             <* wsnlOptional <* sdOptional
-
--- parseListOnNL :: Parser Document
--- parseListOnNL = DList <$> some one
---     where
---         one :: Parser Document
---         one =
---             tokenP TokenDashListItem *> wsnlOptional *> sdStrict *>
---             parseYaml
---             <* wsnlOptional
 
 parseIndented :: Parser Document
 parseIndented =
@@ -596,33 +557,26 @@ parseIndented =
     <* wsOptional <* nlOptional <* sdOptional
 
 parseMap :: Parser Document
-parseMap = DMap <$> ((((:) <$> first) <*> some one) <|> some one)
--- parseMap = DMap <$> (some parseKeyValue)
-    where
-        first :: Parser (String, Document)
-        first = parseKeyValue <* wsnlOptional <* sdStrict
-        one :: Parser (String, Document)
-        one = parseKeyValue
+-- parseMap = DMap <$> ((((:) <$> first) <*> some one) <|> some one)
+parseMap = DMap <$> (
+            -- ((( (:) <$> first ) <*> (many one)) <*> last'' )
 
--- parseListWithNL :: Parser Document
--- parseListWithNL = DList <$> all'
---     where
---         all' :: Parser [Document]
---         all' = ((:) <$> first) <*> rest
---         first :: Parser Document
---         first =
---             tokenP TokenDashListItem *> wsnlOptional *>
---             parseYaml
---             <* wsnlOptional <* sdStrict
+            -- <|> (((:) <$> first) <*> (many last'))
+            ((((:) <$> first) <*> some one) <|> some one)
+        <|> (((:) <$> first) <*> many last')
+        <|> some one
+    )
+    -- where
+        -- last'' :: Parser [(String, Document)]
+        -- last'' = many last'
+first :: Parser (String, Document)
+first = parseKeyValue <* wsnlOptional <* sdOptional
 
---         rest :: Parser [Document]
---         rest = some one
-
---         one :: Parser Document
---         one =
---             tokenP TokenDashListItem *> wsnlOptional *>
---             parseYaml
---             <* wsnlOptional
+-- last' :: Parser [(String, Document)]
+-- last' = (:) <$> last <**>
+last' = parseKeyValue <* wsnlOptional <* sdStrict
+one :: Parser (String, Document)
+one = parseKeyValue
 
 parseMapOnList :: Parser Document
 parseMapOnList = DMap <$> (((:) <$> first) <*> rest <* sdStrict)

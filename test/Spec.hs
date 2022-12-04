@@ -142,9 +142,8 @@ fromYamlTests = testGroup "Document from yaml"
       , testCase "JSON like" $ parseDocument "- [key: value, 5, \"lol\", {key: 'value', key1: value1 }]" @?=
           Right (DList [DList [DMap [("key", DString "value")], DInteger 5, DString "lol", DMap [("key", DString "value"), ("key1", DString "value1")]]])
       , testCase "List of one" $ parseDocument "- 5" @?= Right (DList [DInteger 5])
-      -- iirc, this is not necessary to complete the assignment, but is suported by the yaml standard
-      -- i belive the problem lies within `splitDiff` function
-      , testCase "List of one" $ parseDocument "-\n  5" @?= Right (DList [DInteger 5])
+      , testCase "List of one on new line" $ parseDocument "-\n  5" @?= Right (DList [DInteger 5])
+      , testCase "List of a couple on new line" $ parseDocument "-\n  5\n-\n  6" @?= Right (DList [DInteger 5, DInteger 6])
       , testCase "Simple simple list" $ parseDocument (unlines [
           "- asd",
           "- 1",

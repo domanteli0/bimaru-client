@@ -3,7 +3,8 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
 {-# HLINT ignore "Eta reduce" #-}
-module Parser(parse, Token(..), tokenizeYaml, first, last', one) where
+-- module Parser(parse, Token(..), tokenizeYaml, first, last', one) where
+module Parser(parse, Token(..), tokenizeYaml) where
 
 -- TODO: remove Testing
 import Testing
@@ -384,13 +385,6 @@ parse str = do
     (doc, _) <- runParser parseYaml tokens
     return doc
 
-parseYaml = parseIndented <|> parseMap <|> parseList <|> parseJsonLike
--- parseYaml =  parseIndented <|> parseMap <|> parseListOnNL <|> parseJsonLike
-parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
-parseScalar =  parseNull <|> parseNumber <|> parseString -- <|> parseLast
--- overlapping parsers of last priority
--- parseLast = parseListOnNL
-
 tokenPFac :: (Token -> Token -> Bool) -> (Token -> Parser Token)
 tokenPFac cmpFunc = tokenP'
     where
@@ -481,18 +475,17 @@ parseJsonMap =
         one = wsnlOptional *> parseKeyValueJson <* wsnlOptional
 
 parseNull :: Parser Document
-parseNull = const DNull <$> tokenP TokenScalarNull
+parseNull = sdOptional *> (const DNull <$> tokenP TokenScalarNull)
 
 parseNumber :: Parser Document
-parseNumber = func <$> tokenP (TokenScalarInt 0)
+parseNumber = sdOptional *> (func <$> tokenP (TokenScalarInt 0))
     where
         func :: Token -> Document
         func (TokenScalarInt int) = DInteger int
         func _ = undefined -- <- should not happen
 
 parseString :: Parser Document
-parseString = func <$> tokenP (TokenScalarString "")
-    where
+parseString = nlOptional *> sdOptional *> wsOptional *> (func <$> tokenP (TokenScalarString ""))    where
         func :: Token -> Document
         func (TokenScalarString str) = DString str
         func _ = undefined -- <- should not happen
@@ -531,7 +524,8 @@ parseList = DList <$> (
             -- (((:) <$> first) <*> some one) 
 
             some one
-        <|> (((:) <$> first) <*> pure [])
+        -- <|> (((:) <$> first) <*> some one)
+        -- <|> (((:) <$> first) <*> pure [])
         )
     where
         -- first' :: Parser Document
@@ -539,11 +533,11 @@ parseList = DList <$> (
         --     tokenP TokenDashListItem *> wsOptional *>
         --     parseYaml
         --     <* wsnlOptional <* sdStrict
-        first :: Parser Document
-        first =
-            tokenP TokenDashListItem *> wsnlOptional *> sdStrict *>
-            parseYaml
-            <* wsnlOptional
+        -- first :: Parser Document
+        -- first =
+        --     tokenP TokenDashListItem *> wsOptional *> nlStrict *> sdStrict *>
+        --     parseYaml
+        --     <* wsnlOptional
         one :: Parser Document
         one =
             tokenP TokenDashListItem *> wsnlOptional *>
@@ -562,21 +556,27 @@ parseMap = DMap <$> (
             -- ((( (:) <$> first ) <*> (many one)) <*> last'' )
 
             -- <|> (((:) <$> first) <*> (many last'))
-            ((((:) <$> first) <*> some one) <|> some one)
-        <|> (((:) <$> first) <*> many last')
+            ((((:) <$> first) <*> some one))
         <|> some one
+        -- <|> (((:) <$> first) <*> many last')
     )
-    -- where
+    where
+        -- -- only one -- --
+
+        -- -- two -- ---
+
+        -- -- three and more -- --
+
         -- last'' :: Parser [(String, Document)]
         -- last'' = many last'
-first :: Parser (String, Document)
-first = parseKeyValue <* wsnlOptional <* sdOptional
+        first :: Parser (String, Document)
+        first = parseKeyValue <* wsnlOptional <* sdOptional
 
--- last' :: Parser [(String, Document)]
--- last' = (:) <$> last <**>
-last' = parseKeyValue <* wsnlOptional <* sdStrict
-one :: Parser (String, Document)
-one = parseKeyValue
+        -- last' :: Parser [(String, Document)]
+        -- last' = (:) <$> last <**>
+        last' = parseKeyValue <* wsnlOptional <* sdStrict
+        one :: Parser (String, Document)
+        one = parseKeyValue <* wsOptional <* nlOptional
 
 parseMapOnList :: Parser Document
 parseMapOnList = DMap <$> (((:) <$> first) <*> rest <* sdStrict)
@@ -607,3 +607,8 @@ getStringified :: Parser String
 getStringified = toYamlStr <$> scalarTokenP
 
 
+-- -- -- the glue -- -- --
+parseYaml = parseIndented <|> parseMap <|> parseList <|> parseJsonLike
+-- parseYaml =  parseIndented <|> parseMap <|> parseListOnNL <|> parseJsonLike
+parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
+parseScalar =  parseNull <|> parseNumber <|> parseString

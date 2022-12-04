@@ -17,7 +17,7 @@ type HintNo = Int
 -- IMPLEMENT
 -- Parses a document from yaml
 parseDocument :: String -> Either String Document
-parseDocument str = parse str
+parseDocument = parse
 
 -- IMPLEMENT
 -- Change right hand side as you wish

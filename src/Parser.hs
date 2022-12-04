@@ -526,11 +526,11 @@ nlStrict = tokenP TokenNewLine
 parseList :: Parser Document
 -- parseList = DList <$> (sdOptional *> some one)
 parseList = DList <$> (
-            (((:) <$> first') <*> some one)
-        <|> (((:) <$> first') <*> pure [])
-        <|> (((:) <$> first) <*> some one) 
+        --     (((:) <$> first') <*> some one)
+        -- <|> (((:) <$> first') <*> pure [])
+            (((:) <$> first) <*> some one) 
+        <|> some one 
         <|> (((:) <$> first) <*> pure [])
-        -- some one 
         )
     where
         first' :: Parser Document
@@ -596,11 +596,11 @@ parseIndented =
     <* wsOptional <* nlOptional <* sdOptional
 
 parseMap :: Parser Document
-parseMap = DMap <$> (some one <|> (((:) <$> first) <*> some one))
+parseMap = DMap <$> ((((:) <$> first) <*> some one) <|> some one)
 -- parseMap = DMap <$> (some parseKeyValue)
     where
         first :: Parser (String, Document)
-        first = parseKeyValue <* sdStrict
+        first = parseKeyValue <* wsnlOptional <* sdStrict
         one :: Parser (String, Document)
         one = parseKeyValue
 

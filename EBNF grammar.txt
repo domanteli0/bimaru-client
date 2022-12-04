@@ -1,0 +1,95 @@
+<Digit> ::= 1 |2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+<Integer> ::= <Digit> | <Digit><Integer>
+<Char> ::=   $ | % |& | ( | ) | * | + | `  | . | , | /  | ; | < | = | > | ?  | @ | A | B | C | D | E | F | G  | H | I | J | K| L | M|  N | O |P | Q | R | S | T | U| V | W | X | Y | Z | \  | ^| _ |  a | b | c | d | e | f | g | h | I | j | k | l | m| n | o | p | q | r | s | t | u | v | x | y | z | { | }  | ~ | 1 |2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+<String> ::=  <Char> | <Char><String> | <Char> <String> 
+<Token> : := <TokenInternalUnknown> | <TokenSpace> | <TokenSpaceDiff> | <TokenInternalScalarUnknown> | <TokenScalarString> | <TokenScalarInt> | <TokenScalarNull> | <TokenKeyColon> | <TokenBeginMapping> | <TokenEndMapping> | <TokenDashListItem> | <TokenBeginBracketList> | <TokenEndBracketList> | <TokenCollectionSep> | <TokenNewLine>
+<TokenInternalUnknown> : := <String>
+<TokenSpace> : := “ ”
+ <TokenSpaceDiff > : :=
+<TokenInternalScalarUnknown> : := <TokenScalarNull>
+<TokenScalarString> : := <String>
+<TokenScalarInt> ::= <Integer>
+<TokenScalarNull>  : :=  “null” | “~”
+<TokenKeyColon> : := “: “
+ <TokenBeginMapping> : := “{“
+<TokenEndMapping> ::= “}”
+ <TokenDashListItem>  : :=  “- “
+<TokenBeginBracketList> ::= “[“
+<TokenEndBracketList> : := “]”
+ <TokenCollectionSep> : := “,”
+<TokenNewLine> : := “\n”
+
+//LISTS
+<ListItem> ::= <TokenDashListItem><String><TokenNewLine>
+<ListOfScalars> ::= <ListItem>| <ListItem><ListOfScalars> 
+Example of list of scalars:
+- Mark McGwire
+- Sammy Sosa
+- Ken Griffey
+
+<MappingListsOfScalars> ::= <String><TokenKeyColon><TokenNewLine><ListOfScalars>
+Ex.  of mapping lists of scalars
+american:
+- Boston Red Sox
+- Detroit Tigers
+- New York Yankees
+national:
+- New York Mets
+- Chicago Cubs
+- Atlanta Braves
+
+ <MappingOfScalars> ::= <String><TokenKeyColon><String><TokenNewLine> |
+<String><TokenKeyColon><String><TokenNewLine><MappingOfScalars>
+Ex. Of Mapping of Scalars
+hr:  65    
+avg: 0.278 
+rbi: 147
+
+<ListOfMappings> ::= <TokenDashListItem><ListOfMappings’><TokenDashListItem>
+<ListOfMappings’> ::= <MappingOfScalars><ListOfMappings’>
+Example of sequence of mappings:
+-
+  name: Mark McGwire
+  hr:   65
+  avg:  0.278
+-
+  name: Sammy Sosa
+  hr:   63
+  avg:  0.288
+-
+<KeyValuePair> ::= <String><TokenKeyColon><String> | <String><TokenKeyColon><String><TokenCollectionStep><KeyValuePair>  | <String><TokenKeyColon><String><TokenCollectionStep><KeyValuePair><TokenNewLine> 
+<MappingOfMappings> ::= <String><TokenKeyColon><TokenSpace><TokenBeginMapping><TokenNewLine><KeyValuePair><TokenEndMapping> |
+ <String><TokenKeyColon><TokenSpace><TokenBeginMapping><KeyValuePair><TokenEndMapping>
+Example of Mapping of Mappings:
+Mark McGwire: {hr: 65, avg: 0.278}
+Sammy Sosa: {
+    hr: 63,
+    avg: 0.288,
+ }
+
+//BRACKET LISTS:
+<EmptySquareBracketList> ::= <TokenBeginBracketList><TokenEndBracketList>
+<BracketItemWithComma> ::= <String><TokenCollectionStep> | <String><TokenCollectionStep><BracketItemWithComma>
+<OneItemBracketList> ::= <TokenBeginBracketList><String><TokenEndBracketList>
+<MultipleItemBracketList> ::= <TokenBeginBracketList> <BracketItemWithComma><String><TokenEndBracketList>
+//SEQUENCE OF BRACKET LISTS:
+<BracketItem> ::= <EmptySquereBracketList> | <OneItemBracketList> | <MultipleItemBracketList>
+<BracketListItem> ::= <TokenDashListItem><BracketItem><TokenNewLine>
+<ListOfBracketLists> ::= <BracketListItem> | <BracketListItem><ListOfBracketLists>
+
+//NESTED  LISTS
+//Using EBNF for repetition count
+<TokenSpace>(1) : := “ ”
+<TokenSpace>(n) : := “ ”<TokenSpace> (n-1)
+n – represents positive natural numbers and describes how many times tokenSpace will be repeated.
+<Item> ::= <ListItem> | <OneItemBracketList> | <MultipleItemBracketList> | <MappingListsOfScalars> | <MappingOfScalars> | <ListOfBracketLists> | <ListOfMappings> | <MappingOfMappings>
+// ‘i’ is nested level count. At start ‘i’ = 0
+<NestedList> := <Item> | <TokenSpace>(I+1)<Item>
+
+//DOCUMENT VARIABLES
+<DNull> ::= null | <TokenScalarNull>
+<DInteger> ::=  <Integer> | <TokenScalarInt>
+<DString> ::= <String> | <TokenScalarString>
+<DList> ::=  <EmptyList> | <ListOfScalars> | <ListOfMappings>
+<DMap> ::= <EmptyMap> | <MappingListsOfScalars> | <MappingOfMappings> | <NestedMapping>
+<Document> ::= <DNull> | <DString> | <DInteger> | <DList> | <DMap>

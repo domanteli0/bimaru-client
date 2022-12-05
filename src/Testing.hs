@@ -13,12 +13,20 @@ import Data.String.Conversions (cs)
 test0 :: String
 test0 =
     unlines [
-        "- bejjKf: -3",
-        "  FYVfRg: ' '",
-        "  I: []",
-        "  Omc: 2 o",
-        "- ''"
+        "1:",
+        "    'str':",
+        "      - fml",
+        "      - end mi"
     ]
+-- test0 :: String
+-- test0 =
+--     unlines [
+--         "- bejjKf: -3",
+--         "  FYVfRg: ' '",
+--         "  I: []",
+--         "  Omc: 2 o",
+--         "- ''"
+--     ]
 
 test1 :: String
 test1 = unlines [
@@ -37,10 +45,11 @@ test2 = unlines [
 
 test3 :: String
 test3 = unlines [
-        "key1: value1",
-        "key2:",
-        "  - foo",
-        "key3: value3"
+        "key:",
+        "  key:",
+        "    - fml",
+        "    - end me",
+        "key1: studd"
     ]
 
 test4 = unlines [

@@ -70,24 +70,13 @@ combOne (Parser p1) (Parser p2) =
 
         return ([a, a'], input'')
 
--- (<c>) :: Parser [a] -> Parser [a] -> Parser [a]
--- p1 `c` p1 = 
--- instance Monad Parser where
---     (>>=) :: Parser a -> (a -> Parser b) -> Parser b
---     (Parser p1) >>= f = do 
---         let p2 = \input -> f input
---             -- case f input of
---             --     Left msg -> Left msg
---             --     Right (a, tkns) -> Right (a, tkns)
-        
---         undefined
-        -- f p1
+overrideLeft :: Parser a -> String -> Parser a
+overrideLeft (Parser p1) str =
+    Parser $ \input -> do
+        case p1 input of
+            Right r -> Right r
+            Left _ -> Left str
 
--- instance Monad (Either e) where
---     Left l >>= _ = Left l
---     Right r >>= k = k r
-
-    -- (\_a _b -> _a) <$> p1 
 
 -- YamlToken is purposefully not recursive
 -- `tokenizeYaml` makes a guarante what
@@ -113,6 +102,8 @@ data Token =
     | TokenEndBracketList
     | TokenCollectionSep
     | TokenNewLine
+    | TokenNone
+    -- ^ meant to symbolize what nothing was parsed
     deriving (Show, Eq)
 
 toYamlStr :: Token -> String
@@ -435,18 +426,16 @@ tokenPFac cmpFunc = tokenP'
                     | otherwise = Left $ "ERR_01: Coudn't match a token, expected: " ++ show t ++ ", got: " ++ show (t':ts)
                 func _ = Left "ERR_02A: Empty token list"
 
-tokenPFac' :: (Token -> Token -> Bool) -> (Token -> Parser Token)
-tokenPFac' cmpFunc = tokenP'
+tokenPOpFac :: (Token -> Token -> Bool) -> (Token -> Parser Token)
+tokenPOpFac cmpFunc = tokenP'
     where
         tokenP' t = Parser func
             where
                 func (t':ts)
                     | t `cmpFunc` t' = Right (t', ts)
                     | otherwise = Right (t', t':ts)
-                func _ = Left "ERR_02B: Empty token list"
-
-tokenPExact :: Token -> Parser Token
-tokenPExact = tokenPFac (==)
+                func [] = Right (TokenNone, [])
+                -- func _ = Left "ERR_02B: Empty token list"
 
 tokenP :: Token -> Parser Token
 tokenP = tokenPFac dumbCmp
@@ -455,7 +444,7 @@ scalarTokenP :: Parser Token
 scalarTokenP = tokenPFac (\_ t2 -> isTokenScalar t2) $ TokenScalarInt 1
 
 tokenPOptional :: Token -> Parser Token
-tokenPOptional = tokenPFac' dumbCmp
+tokenPOptional = tokenPOpFac dumbCmp
 
 tokenListP :: [Token] -> Parser [Token]
 tokenListP = traverse tokenP
@@ -547,13 +536,14 @@ wsOptional = spanP isTokenSpace
 wsnlOptional :: Parser [Token]
 wsnlOptional = spanP (\t -> isTokenSpace t || isTokenNewLine t)
 
-wsnlsdOptional :: Parser [Token]
-wsnlsdOptional = spanP (\t -> isTokenSpace t || isTokenNewLine t || isTokenSpaceDiff t)
+-- wsnlsdOptional :: Parser [Token]
+-- wsnlsdOptional = (spanP (\t -> isTokenSpace t || isTokenNewLine t)) *> tokenPOptional TokenSpaceDiff 0
 
 sdOptional :: Parser Token
 sdOptional = tokenPOptional (TokenSpaceDiff 0)
 
 sdStrict :: Parser Token
+-- sdStrict = overrideLeft (tokenP (TokenSpaceDiff 0)) "TokenSpaceDiff expected, but ERR_02A or ERR_01 happened"
 sdStrict = tokenP (TokenSpaceDiff 0)
 
 nlStrict :: Parser Token
@@ -589,39 +579,51 @@ parseList = DList <$> (
 
 parseIndented :: Parser Document
 parseIndented =
-    nlOptional *> sdStrict *>
+    wsnlOptional *> sdStrict *>
     parseYaml
-    <* wsnlOptional <* sdStrict
+    <* wsnlOptional
+    -- <* sdStrict
+    <* sdOptional
+    -- <* overrideLeft
+    --     sdStrict
+    --     "In `parseIndented` `TokenSpaceDiff` was expected, got ERR_02A or ERR_01 instead"
 
 parseMap :: Parser Document
--- parseMap = DMap <$> ((((:) <$> first) <*> some one) <|> some one)
+-- parseMap = DMap <$> ((((:) <$> first) <*> many one) <|> many last')
 parseMap = DMap <$> (
-
-            -- <|> (((:) <$> first) <*> (many last'))
-            (((:) <$> first) <*> (many last'))
-        -- <|> ((( (:) <$> first ) <*> many one) `combLOne` last' )
-            -- ((first `combOne` one) `combLOne` last' )
-        <|> some one
-        -- <|> (((:) <$> first) <*> many last')
+            -- (((:) <$> first) <*> (many last')) <|>
+        -- ((((:) <$> first) <*> many one) <|> some last') <|>
+        some one <|>
+        some one'
+        -- some one
     )
-    where
-        first, last', one :: Parser (String, Document)
-        first = parseKeyValue <* wsnlOptional <* sdStrict
-        last' = parseKeyValue <* wsnlsdOptional
-        one = parseKeyValue <* wsnlOptional
-        -- one = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
+    -- where
+first, last', one :: Parser (String, Document)
+first = parseKeyValue <* wsnlOptional <* sdStrict
+
+last' = parseKeyValue <* wsnlOptional <* sdStrict
+-- one = parseKeyValueOnNL <* wsnlOptional
+one = parseKeyValue <* wsnlOptional
+    -- one = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
+one' = parseKeyValueOnNL <* wsnlOptional
+
+parseKeyValueOnNL :: Parser (String, Document)
+parseKeyValueOnNL =
+      (\key _ value -> (key, value)) <$> getStringified <*>
+      ( tokenP TokenKeyColon <* wsnlOptional <* sdStrict) <*>
+      parseYaml <* sdOptional
 
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
       (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsnlsdOptional) <*>
+      ( tokenP TokenKeyColon <* wsnlOptional) <*>
       parseYaml
 
 
 parseKeyValueJson :: Parser (String, Document)
 parseKeyValueJson =
       (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsnlsdOptional) <*>
+      ( tokenP TokenKeyColon <* wsnlOptional) <*>
       parseJsonLike <* wsnlOptional
 
 getStringified :: Parser String
@@ -629,5 +631,8 @@ getStringified = toYamlStr <$> scalarTokenP
 
 -- -- -- the glue -- -- --
 parseYaml = parseIndented <|> parseMap <|> parseList <|> parseJsonLike
+
+-- `parseIndented` is "pushed" as much as possible into the parser chains
+-- without breaking stuff 
 parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
-parseScalar =  parseNull <|> parseString <|> parseNumber
+parseScalar =  parseNull <|> parseNumber <|> parseString 

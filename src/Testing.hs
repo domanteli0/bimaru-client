@@ -37,15 +37,18 @@ test2 = unlines [
 
 test3 :: String
 test3 = unlines [
-        "- - - 0",
-        "    - ' 7o5'",
-        "  - 7",
-        "- -2"
+        "key1: value1",
+        "key2:",
+        "  - foo",
+        "key3: value3"
     ]
 
 test4 = unlines [
-        "- 'foo'",
-        "- 'bar'"
+        "key1: value1",
+        "key2:",
+        "  - foo",
+        "  - bar",
+        "key3: value3"
     ]
 
 -- test3 :: String

@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
 {-# HLINT ignore "Eta reduce" #-}
+{-# LANGUAGE InstanceSigs #-}
 -- module Parser(parse, Token(..), tokenizeYaml, first, last', one) where
 module Parser(parse, Token(..), tokenizeYaml) where
 
@@ -45,6 +46,49 @@ instance Alternative Parser where
   (Parser p1) <|> (Parser p2) =
       Parser $ \input -> p1 input <|> p2 input
 
+comb :: Parser [a] -> Parser [a] -> Parser [a]
+comb (Parser p1) (Parser p2) =
+    Parser $ \input -> do
+        (a, input') <- p1 input
+        (a', input'') <- p2 input'
+
+        return (a ++ a', input'')
+
+combLOne :: Parser [a] -> Parser a -> Parser [a]
+combLOne (Parser p1) (Parser p2) =
+    Parser $ \input -> do
+        (a, input') <- p1 input
+        (a', input'') <- p2 input'
+
+        return (a ++ [a'], input'')
+
+combOne :: Parser a -> Parser a -> Parser [a]
+combOne (Parser p1) (Parser p2) =
+    Parser $ \input -> do
+        (a, input') <- p1 input
+        (a', input'') <- p2 input'
+
+        return ([a, a'], input'')
+
+-- (<c>) :: Parser [a] -> Parser [a] -> Parser [a]
+-- p1 `c` p1 = 
+-- instance Monad Parser where
+--     (>>=) :: Parser a -> (a -> Parser b) -> Parser b
+--     (Parser p1) >>= f = do 
+--         let p2 = \input -> f input
+--             -- case f input of
+--             --     Left msg -> Left msg
+--             --     Right (a, tkns) -> Right (a, tkns)
+        
+--         undefined
+        -- f p1
+
+-- instance Monad (Either e) where
+--     Left l >>= _ = Left l
+--     Right r >>= k = k r
+
+    -- (\_a _b -> _a) <$> p1 
+
 -- YamlToken is purposefully not recursive
 -- `tokenizeYaml` makes a guarante what
 --  tokens starting with `TokenInternal`
@@ -85,13 +129,9 @@ isTokenScalarInt _ = False
 
 isTokenScalarString (TokenScalarString _) = True
 isTokenScalarString _ = False
--- getTokenScalarInt (TokenScalarString i) = Right i
--- getTokenScalarInt _ = Left "Not an TokenScalarInt"
 
 isTokenScalarNull TokenScalarNull = True
 isTokenScalarNull _ = False
--- getTokenScalarInt (TokenScalarString i) = Right i
--- getTokenScalarInt _ = Left "Not an TokenScalarInt"
 
 isTokenSpace (TokenSpace _) = True
 isTokenSpace _              = False
@@ -412,7 +452,7 @@ tokenP :: Token -> Parser Token
 tokenP = tokenPFac dumbCmp
 
 scalarTokenP :: Parser Token
-scalarTokenP = tokenPFac (\_ t2 -> isTokenScalar t2) $ TokenScalarInt 0
+scalarTokenP = tokenPFac (\_ t2 -> isTokenScalar t2) $ TokenScalarInt 1
 
 tokenPOptional :: Token -> Parser Token
 tokenPOptional = tokenPFac' dumbCmp
@@ -507,6 +547,9 @@ wsOptional = spanP isTokenSpace
 wsnlOptional :: Parser [Token]
 wsnlOptional = spanP (\t -> isTokenSpace t || isTokenNewLine t)
 
+wsnlsdOptional :: Parser [Token]
+wsnlsdOptional = spanP (\t -> isTokenSpace t || isTokenNewLine t || isTokenSpaceDiff t)
+
 sdOptional :: Parser Token
 sdOptional = tokenPOptional (TokenSpaceDiff 0)
 
@@ -548,67 +591,43 @@ parseIndented :: Parser Document
 parseIndented =
     nlOptional *> sdStrict *>
     parseYaml
-    <* wsOptional <* nlOptional <* sdOptional
+    <* wsnlOptional <* sdStrict
 
 parseMap :: Parser Document
 -- parseMap = DMap <$> ((((:) <$> first) <*> some one) <|> some one)
 parseMap = DMap <$> (
-            -- ((( (:) <$> first ) <*> (many one)) <*> last'' )
 
             -- <|> (((:) <$> first) <*> (many last'))
-            ((((:) <$> first) <*> some one))
+            (((:) <$> first) <*> (many last'))
+        -- <|> ((( (:) <$> first ) <*> many one) `combLOne` last' )
+            -- ((first `combOne` one) `combLOne` last' )
         <|> some one
         -- <|> (((:) <$> first) <*> many last')
     )
     where
-        -- -- only one -- --
-
-        -- -- two -- ---
-
-        -- -- three and more -- --
-
-        -- last'' :: Parser [(String, Document)]
-        -- last'' = many last'
-        first :: Parser (String, Document)
-        first = parseKeyValue <* wsnlOptional <* sdOptional
-
-        -- last' :: Parser [(String, Document)]
-        -- last' = (:) <$> last <**>
-        last' = parseKeyValue <* wsnlOptional <* sdStrict
-        one :: Parser (String, Document)
-        one = parseKeyValue <* wsOptional <* nlOptional
-
-parseMapOnList :: Parser Document
-parseMapOnList = DMap <$> (((:) <$> first) <*> rest <* sdStrict)
-    where
-        first :: Parser (String, Document)
-        first =
-            (\key _ value -> (key, value)) <$> getStringified <*>
-            ( tokenP TokenKeyColon <* wsnlOptional) <*>
-            parseYaml <* wsnlOptional <* sdStrict
-
-        rest :: Parser [(String, Document)]
-        rest = some parseKeyValue
+        first, last', one :: Parser (String, Document)
+        first = parseKeyValue <* wsnlOptional <* sdStrict
+        last' = parseKeyValue <* wsnlsdOptional
+        one = parseKeyValue <* wsnlOptional
+        -- one = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
 
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
       (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsnlOptional) <*>
-      parseYaml <* wsnlOptional
+      ( tokenP TokenKeyColon <* wsnlsdOptional) <*>
+      parseYaml
 
 
 parseKeyValueJson :: Parser (String, Document)
 parseKeyValueJson =
       (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsOptional) <*>
+      ( tokenP TokenKeyColon <* wsnlsdOptional) <*>
       parseJsonLike <* wsnlOptional
 
 getStringified :: Parser String
 getStringified = toYamlStr <$> scalarTokenP
 
-
 -- -- -- the glue -- -- --
 parseYaml = parseIndented <|> parseMap <|> parseList <|> parseJsonLike
--- parseYaml =  parseIndented <|> parseMap <|> parseListOnNL <|> parseJsonLike
 parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
-parseScalar =  parseNull <|> parseNumber <|> parseString
+parseScalar =  parseNull <|> parseString <|> parseNumber

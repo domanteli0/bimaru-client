@@ -592,20 +592,22 @@ parseMap :: Parser Document
 -- parseMap = DMap <$> ((((:) <$> first) <*> many one) <|> many last')
 parseMap = DMap <$> (
             -- (((:) <$> first) <*> (many last')) <|>
-        -- ((((:) <$> first) <*> many one) <|> some last') <|>
+        ((((:) <$> first) <*> many (last' <|> one' <|> one))) <|>
+        ((((:) <$> one') <*> many (last' <|> one' <|> one))) <|>
         some one <|>
         some one'
         -- some one
     )
     -- where
-first, last', one :: Parser (String, Document)
+first, first', last', one', one :: Parser (String, Document)
 first = parseKeyValue <* wsnlOptional <* sdStrict
+first' = parseKeyValueOnNL <* wsnlOptional
 
 last' = parseKeyValue <* wsnlOptional <* sdStrict
 -- one = parseKeyValueOnNL <* wsnlOptional
+one' = parseKeyValueOnNL <* wsnlOptional
 one = parseKeyValue <* wsnlOptional
     -- one = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
-one' = parseKeyValueOnNL <* wsnlOptional
 
 parseKeyValueOnNL :: Parser (String, Document)
 parseKeyValueOnNL =

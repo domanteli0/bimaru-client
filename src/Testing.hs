@@ -45,11 +45,11 @@ test2 = unlines [
 
 test3 :: String
 test3 = unlines [
-        "key:",
-        "  key:",
-        "    - fml",
-        "    - end me",
-        "key1: studd"
+        "- key:",
+        "    key:",
+        "      - end me",
+        "  key1: studd",
+        "- 666"
     ]
 
 test4 = unlines [

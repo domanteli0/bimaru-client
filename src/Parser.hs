@@ -619,17 +619,17 @@ parseMap = DMap <$> (
         -- '   keyy:      '
         -- '     stuff    '
         -- '   key: asd   '
-
-        (((:) <$> first') <*> (one `combROne` last')) <|>
+        (((:) <$> one <* sdStrict) <*> ( (some one) <* sdStrict)) <|>
+        some one
         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
         -- ((((:) <$> one) <*> many (one))) <|>
-    
+
         -- normal branch, i.e.:
-        -- ' key: stuuf '
-        -- ' keyy:      '
-        -- '     stuff  '
-        -- ' key: asd   '
-        some one
+        -- ' -            '
+        -- '   key: stuuf '
+        -- '   keyy:      '
+        -- '       stuff  '
+        -- '   key: asd   '
 
         -- (((:) <$> one) <*> many (last' <|> one)) <|>
 
@@ -639,7 +639,7 @@ parseMap = DMap <$> (
 first, first', last', last'', one :: Parser (String, Document)
 first = one
 last' = one
- 
+
 first' = one <* sdStrict
 last'' = one <* sdStrict
 -- one = parseKeyValueOnNL <* wsnlOptional

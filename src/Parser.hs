@@ -3,16 +3,15 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
 {-# HLINT ignore "Eta reduce" #-}
-{-# LANGUAGE InstanceSigs #-}
 -- module Parser(parse, Token(..), tokenizeYaml, first, last', one) where
 module Parser(parse, Token(..), tokenizeYaml) where
 
 -- TODO: remove Testing
-import Testing
+import Testing -- <- for use in ghci
 import Types(Document(..), ToDocument, toDocument)
 -- import qualified Control.Monad.Trans.Error
 import Data.List (isPrefixOf)
-import Text.Read (readMaybe, Lexeme (String))
+import Text.Read (readMaybe)
 import Data.Maybe (isJust)
 import Control.Applicative
 -- import Data.List (singleton)
@@ -588,16 +587,16 @@ parseList = DList <$> (
             -- parseE
             <* wsnlOptional
 
-        wrapper :: Parser Document
-        -- wrapper = DMap <$>
-        --     (((:) <$> one <* sdStrict) <*> ( (some one) <* sdStrict))
-        wrapper = DMap <$> (((:) <$> (tokenP TokenDashListItem *> one)) <*> (sdStrict *> (some one) <* sdStrict))
+        -- wrapper :: Parser Document
+        -- -- wrapper = DMap <$>
+        -- --     (((:) <$> one <* sdStrict) <*> ( (some one) <* sdStrict))
+        -- wrapper = DMap <$> (((:) <$> (tokenP TokenDashListItem *> one)) <*> (sdStrict *> (some one) <* sdStrict))
 
-        -- fstMap :: Parser (String, Document)
-        -- fstMap = one <* sdStrict
+        -- -- fstMap :: Parser (String, Document)
+        -- -- fstMap = one <* sdStrict
 
-        middleMap :: Parser [(String, Document)]
-        middleMap = some one
+        -- middleMap :: Parser [(String, Document)]
+        -- middleMap = some one
 
         -- endMap :: Parser (String, Document)
         -- endMap = sdStrict
@@ -639,8 +638,7 @@ parseMap = DMap <$> (
         -- '   keyy:      '
         -- '     stuff    '
         -- '   key: asd   '
-        (((:) <$> one) <*> ( sdStrict *> (some one) <* sdStrict)) <|>
-        -- some one
+        (((:) <$> kvp <* sdStrict) <*> ((some kvp) <* sdStrict)) <|>
         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
         -- ((((:) <$> one) <*> many (one))) <|>
 
@@ -650,34 +648,25 @@ parseMap = DMap <$> (
         -- '   keyy:      '
         -- '       stuff  '
         -- '   key: asd   '
-        some one
+        some kvp
 
         -- (((:) <$> one) <*> many (last' <|> one)) <|>
-
     )
-    -- where
-first, first', last', last'', one :: Parser (String, Document)
-first = one
-last' = one
-
-first' = one <* sdStrict
-last'' = one <* sdStrict
--- one = parseKeyValueOnNL <* wsnlOptional
--- one' = parseKeyValueOnNL <* wsnlOptional
-one = (parseKeyValue <|> parseKeyValueOnNL) <* wsnlOptional
-    -- one = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
+kvp = (parseKeyValue <|> parseKeyValueOnNL) <* wsnlOptional
+-- kvp = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
 
 parseKeyValueOnNL :: Parser (String, Document)
 parseKeyValueOnNL =
       (\key _ value -> (key, value)) <$> getStringified <*>
       ( tokenP TokenKeyColon <* wsnlOptional <* sdStrict) <*>
+    --   parseYaml
     --   parseYaml <* sdOptional
       parseYaml <* sdStrict
 
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
       (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsOptional) <*>
+      ( tokenP TokenKeyColon <* wsnlOptional) <*>
       parseYaml
 
 
@@ -691,7 +680,7 @@ getStringified :: Parser String
 getStringified = toYamlStr <$> scalarTokenP
 
 -- -- -- the glue -- -- --
-parseYaml = parseMap <|> parseIndented  <|> parseList <|> parseJsonLike
+parseYaml = parseMap <|> parseIndented <|> parseList <|> parseJsonLike
 
 -- `parseIndented` is "pushed" as much as possible into the parser chains
 -- without breaking stuff 

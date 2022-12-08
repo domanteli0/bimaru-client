@@ -316,13 +316,26 @@ fromYamlTests = testGroup "Document from yaml"
                   DMap [("key", DList [DString "fml", DString "end me"])]),
                 ("key1", DString "studd")], 
               DInteger 666])
-      , testCase "List (nl between `-` and map) with a nested map" $ parseDocument (unlines [
-          "- ",
+      , testCase "A nested map" $ parseDocument (unlines [
+          "key:",
           "  key:",
-          "    key:",
-          "      - fml",
-          "      - end me",
-          "  key1: studd"
+          "    - fml",
+          "    - end me",
+          "key1: studd"
+        ])
+          @?=            
+            Right (
+              DMap [
+                ("key", 
+                  DMap [("key", DList [DString "fml", DString "end me"])]),
+                ("key1", DString "studd")])
+      , testCase "List (nl between `-` and map) with a nested map" $ parseDocument (unlines [
+            "- ",
+            "  key:",
+            "    key:",
+            "      - fml",
+            "      - end me",
+            "  key1: studd"
           , "- 666"
         ])
           @?=

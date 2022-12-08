@@ -30,34 +30,38 @@ test0 =
 
 test1 :: String
 test1 = unlines [
-        "- key: stuff",
-        "  key1: studd",
-        "- 666"
+        "key1: value1",
+        "key2: value2",
+        "key3: value3"
     ]
 
 test2 :: String
 test2 = unlines [
-        "- key: stuff",
-        "  key1: studd",
-        "  key2: stuss",
-        "- 666"
+        "key:",
+        "  key:",
+        "    - fml",
+        "    - end me",
+        "key1: studd"
     ]
 
 test3 :: String
 test3 = unlines [
         "- key:",
         "    key:",
+        "      - fml",
         "      - end me",
         "  key1: studd",
         "- 666"
     ]
 
 test4 = unlines [
-        "key1: value1",
-        "key2:",
-        "  - foo",
-        "  - bar",
-        "key3: value3"
+        "- ",
+        "  key:",
+        "    key:",
+        "      - fml",
+        "      - end me",
+        "  key1: studd",
+        "- 666"
     ]
 
 -- test3 :: String

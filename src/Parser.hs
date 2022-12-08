@@ -54,10 +54,19 @@ comb (Parser p1) (Parser p2) =
 
         return (a ++ a', input'')
 
-combLOne :: Parser [a] -> Parser a -> Parser [a]
+combLOne :: Parser a -> Parser [a] -> Parser [a]
 combLOne (Parser p1) (Parser p2) =
     Parser $ \input -> do
         (a, input') <- p1 input
+        (a', input'') <- p2 input'
+
+        return (a : a', input'')
+
+-- combROne :: Parser [a] -> Parser a -> Parser [a]
+combROne :: Parser a -> Parser a -> Parser [a]
+combROne p1 (Parser p2) =
+    Parser $ \input -> do
+        (a, input') <- runParser (many p1) input
         (a', input'') <- p2 input'
 
         return (a ++ [a'], input'')
@@ -83,7 +92,7 @@ overrideLeft (Parser p1) str =
 --  tokens starting with `TokenInternal`
 --  do not show up then tokenized
 --  if encoutered after `tokenizeYaml`
--- consider it a bug or oversight in `tokenizeYaml`
+-- consider it a bug or an oversight in `tokenizeYaml`
 data Token =
       TokenInternalUnknown Char
     | TokenSpace Int
@@ -103,7 +112,7 @@ data Token =
     | TokenCollectionSep
     | TokenNewLine
     | TokenNone
-    -- ^ meant to symbolize what nothing was parsed
+    -- ^ meant to symbolize what nothing was parsed, but shouldn't be an error
     deriving (Show, Eq)
 
 toYamlStr :: Token -> String
@@ -588,37 +597,67 @@ parseIndented =
     --     sdStrict
     --     "In `parseIndented` `TokenSpaceDiff` was expected, got ERR_02A or ERR_01 instead"
 
+
+-- NOTE: `<*` has higher priority than `<|>`
 parseMap :: Parser Document
 -- parseMap = DMap <$> ((((:) <$> first) <*> many one) <|> many last')
 parseMap = DMap <$> (
-            -- (((:) <$> first) <*> (many last')) <|>
-        ((((:) <$> first) <*> many (last' <|> one' <|> one))) <|>
-        ((((:) <$> one') <*> many (last' <|> one' <|> one))) <|>
-        some one <|>
-        some one'
+
+        -- 👇 problematic misparses testCase "List (nl between `-` and map) with a nested map"
+        -- ((((:) <$> one') <*> many (last' <|> one' <|> one))) <|>
+
+        -- ((((:) <$> one') <*> many (one))) <|>
+        -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
+        -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
+
+        -- (((:) <$> first') <*> (many (last'' <|> one)))
+
+
+        -- map on list branch, i.e.: [DOESN'T WORK]  
+        -- normal branch, i.e.:
+        -- ' - key: stuuf '
+        -- '   keyy:      '
+        -- '     stuff    '
+        -- '   key: asd   '
+
+        (((:) <$> first') <*> (one `combROne` last')) <|>
+        -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
+        -- ((((:) <$> one) <*> many (one))) <|>
+    
+        -- normal branch, i.e.:
+        -- ' key: stuuf '
+        -- ' keyy:      '
+        -- '     stuff  '
+        -- ' key: asd   '
+        some one
+
+        -- (((:) <$> one) <*> many (last' <|> one)) <|>
+
         -- some one
     )
     -- where
-first, first', last', one', one :: Parser (String, Document)
-first = parseKeyValue <* wsnlOptional <* sdStrict
-first' = parseKeyValueOnNL <* wsnlOptional
-
-last' = parseKeyValue <* wsnlOptional <* sdStrict
+first, first', last', last'', one :: Parser (String, Document)
+first = one
+last' = one
+ 
+first' = one <* sdStrict
+last'' = one <* sdStrict
 -- one = parseKeyValueOnNL <* wsnlOptional
-one' = parseKeyValueOnNL <* wsnlOptional
-one = parseKeyValue <* wsnlOptional
+-- one' = parseKeyValueOnNL <* wsnlOptional
+one = (parseKeyValue <|> parseKeyValueOnNL) <* wsnlOptional
     -- one = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
 
 parseKeyValueOnNL :: Parser (String, Document)
 parseKeyValueOnNL =
       (\key _ value -> (key, value)) <$> getStringified <*>
       ( tokenP TokenKeyColon <* wsnlOptional <* sdStrict) <*>
-      parseYaml <* sdOptional
+    --   parseYaml <* sdOptional
+      parseYaml <* sdStrict
 
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
       (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsnlOptional) <*>
+      ( tokenP TokenKeyColon <* wsOptional) <*>
       parseYaml
 
 
@@ -637,4 +676,4 @@ parseYaml = parseIndented <|> parseMap <|> parseList <|> parseJsonLike
 -- `parseIndented` is "pushed" as much as possible into the parser chains
 -- without breaking stuff 
 parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
-parseScalar =  parseNull <|> parseNumber <|> parseString 
+parseScalar =  parseNull <|> parseNumber <|> parseString

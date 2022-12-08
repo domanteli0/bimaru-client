@@ -1,20 +1,15 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
 {-# HLINT ignore "Eta reduce" #-}
-module Parser(parse, Token(..), tokenizeYaml, first, last', one) where
+module Parser(parse, Token(..), tokenizeYaml) where
 
--- TODO: remove Testing
-import Testing
 import Types(Document(..), ToDocument, toDocument)
 -- import qualified Control.Monad.Trans.Error
 import Data.List (isPrefixOf)
 import Text.Read (readMaybe)
 import Data.Maybe (isJust)
 import Control.Applicative
--- import Data.List (singleton)
--- import Control.Monad
 
 -- - Raktai neturės "specialių" simbolių, o tik raides
 -- - Eilutės galimos tik raidės, skaitmenys ir tarpas
@@ -49,7 +44,7 @@ instance Alternative Parser where
 --  tokens starting with `TokenInternal`
 --  do not show up then tokenized
 --  if encoutered after `tokenizeYaml`
--- consider it a bug or oversight in `tokenizeYaml`
+--  consider it a bug or an oversight in `tokenizeYaml`
 data Token =
       TokenInternalUnknown Char
     | TokenSpace Int
@@ -79,19 +74,6 @@ toYamlStr _ = undefined
 isTokenNewLine TokenNewLine = True
 isTokenNewLine _ = False
 
-isTokenScalarInt (TokenScalarInt _) = True
-isTokenScalarInt _ = False
-
-isTokenScalarString (TokenScalarString _) = True
-isTokenScalarString _ = False
--- getTokenScalarInt (TokenScalarString i) = Right i
--- getTokenScalarInt _ = Left "Not an TokenScalarInt"
-
-isTokenScalarNull TokenScalarNull = True
-isTokenScalarNull _ = False
--- getTokenScalarInt (TokenScalarString i) = Right i
--- getTokenScalarInt _ = Left "Not an TokenScalarInt"
-
 isTokenSpace (TokenSpace _) = True
 isTokenSpace _              = False
 
@@ -103,23 +85,9 @@ isTokenScalar _                     = False
 isTokenSpaceDiff (TokenSpaceDiff _) = True
 isTokenSpaceDiff _                  = False
 
-isTokenKeyColon TokenKeyColon  = True
-isTokenKeyColon _              = False
-
-isTokenDashListItem TokenDashListItem = True
-isTokenDashListItem _ = False
-
 removeTokenSpaceDiff :: [Token] -> [Token]
 removeTokenSpaceDiff ((TokenSpaceDiff _):ts) = ts
 removeTokenSpaceDiff ts = ts
-
-removeTokenDashListItem :: [Token] -> [Token]
-removeTokenDashListItem (TokenDashListItem:ts) = ts
-removeTokenDashListItem ts = ts
--- isTokenEndOfDocument TokenEndOfDocument = True
--- isTokenEndOfDocument _ = False
---                         Indentation Token on the line
--- data InfoToken = InfoToken Int         [Token]
 
 instance ToDocument Token where
     toDocument (TokenScalarString str) = DString str
@@ -127,7 +95,7 @@ instance ToDocument Token where
     toDocument TokenScalarNull = DNull
     toDocument _ = undefined
 
--- -- -- war crimes -- -- --
+-- -- -- tokenize -- -- --
 
 tokenizeYaml :: String -> [Token]
 tokenizeYaml "" = []
@@ -144,31 +112,6 @@ tokenizeYaml str = pipeline str
             tokenizeYaml' .
             ensureNL
             ) (str' ++ "\n")
-        -- pipeline str' = (normalizeDashListItem . splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n")
-        -- pipeline str' = (normalizeDashListItem . splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n")
-
-        -- This changes lines like these:
-        -- '- stuff:<...>'
-        -- '  fml:<...>'
-        --   into
-        -- '-         '
-        -- '  stuff'
-        -- '  fml'
-        -- normalizeDashListMap :: [Token] -> [Token]
-        -- normalizeDashListMap tkns = snd $ normalizeDashListMap' (tkns, [])
-        --     where
-        --         normalizeDashListMap' :: ([Token], [Token]) -> ([Token], [Token])
-        --         normalizeDashListMap' ([], ts') = ([], ts')
-        --         normalizeDashListMap' (TokenDashListItem:TokenNewLine:ts, ts' ) =
-        --             normalizeDashListMap' (ts, ts' ++ [TokenDashListItem, TokenNewLine])
-        --         normalizeDashListMap' (TokenDashListItem:ts, ts' ) = do
-        --             let (bef, after) = break isTokenDashListItem ts
-
-        --             normalizeDashListMap' (
-        --                     bef ++ [TokenSpaceDiff (-2)] ++ after,
-        --                     ts' ++ [TokenDashListItem, TokenNewLine, TokenSpaceDiff 2]
-        --                 )
-        --         normalizeDashListMap' (tkn:ts, ts') = normalizeDashListMap' (ts, ts' ++ [tkn])
 
         -- Currently, this doesn't handle cases when there is a `TokenSpace` between `TokenDashListItem`s
         -- multiline json like lists and mappings are also unsupported
@@ -193,22 +136,6 @@ tokenizeYaml str = pipeline str
                             ts' ++ [TokenDashListItem, TokenNewLine, TokenSpaceDiff 2]
                         )
                 normalizeDashListItem' (tkn:ts, ts') = normalizeDashListItem' (ts, ts' ++ [tkn])
-
-                -- normalizeDashListItem' :: ([Token], [Token]) -> ([Token], [Token])
-                -- normalizeDashListItem' ([], ts') = ([], ts')
-                -- normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts, ts' ) = do
-                --     let (bef, diff:after) = break isTokenSpaceDiff ts
-                --     -- (bef ++ [a], after)
-                --     -- let (inside_bef, diff'inside_after) = 
-                --     --         normalizeDashListItem' (inside_bef ++ [diff], [])
-                --         -- normalizeDashListItem' (TokenDashListItem:bef ++ [a], after ++ [TokenDashListItem, TokenSpaceDiff 2])
-                --     -- (TokenDashListItem:ts, ts' ++ [TokenSpaceDiff 2, inside, after])
-
-                --     normalizeDashListItem' (
-                --             TokenDashListItem:bef  ++ after ++ [diff] ++ [TokenDashListItem, TokenSpaceDiff 2], 
-                --             ts'
-                --         )
-                -- normalizeDashListItem' (tkn:ts, ts') = normalizeDashListItem' (ts, ts' ++ [tkn])
 
         tokenizeYaml' :: String -> [Token]
         tokenizeYaml' "" = []
@@ -256,7 +183,7 @@ tokenizeYaml str = pipeline str
                     | otherwise = normalizeWhitespace' (tkn:ts,ts' ++ [TokenNewLine, TokenSpace 0])
                 normalizeWhitespace' (tkn:ts, ts') = normalizeWhitespace' (ts, ts' ++ [tkn])
 
-        -- gets rid of `TokenSpace` and introduces `TokenSpaceDiff`
+        -- gets rid of leading `TokenSpace` and introduces `TokenSpaceDiff`
         diff :: [Token] -> [Token]
         diff ((TokenSpace s):tokens) = snd $ diff' (tokens, []) s
             where
@@ -309,9 +236,6 @@ tokenizeYaml str = pipeline str
                 joinBetweenScalar'
                     ((TokenInternalScalarUnknown str1):(TokenSpace times):(TokenInternalScalarUnknown str2):ts, ts')
                         = joinBetweenScalar' (TokenInternalScalarUnknown (str1 ++ replicate times ' ' ++ str2) : ts, ts')
-                -- joinBetweenScalar'
-                    -- ((TekenDashListItem):(TokenSpace times):(TekenDashListItem str2):ts, ts')
-                    --     = joinBetweenScalar' (TokenInternalScalarUnknown (str1 ++ replicate times ' ' ++ str2) : ts, ts')
                 joinBetweenScalar' (t:ts, ts') = joinBetweenScalar' (ts, ts' ++ [t])
 
         tokenize :: String -> ([Token], String)
@@ -373,9 +297,6 @@ tokenizeYaml str = pipeline str
                                 unJust Nothing = undefined
                 func t = t
 
--- if, by now, you're wondering if the whole
---  ~ ~ l e t ' s  t o k e n i z e ~ ~ thing was a mistake, it was
-
 -- -- -- parsing -- -- --
 
 parse :: String -> Either String Document
@@ -385,11 +306,8 @@ parse str = do
     return doc
 
 parseYaml = parseIndented <|> parseMap <|> parseList <|> parseJsonLike
--- parseYaml =  parseIndented <|> parseMap <|> parseListOnNL <|> parseJsonLike
 parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
-parseScalar =  parseNull <|> parseNumber <|> parseString -- <|> parseLast
--- overlapping parsers of last priority
--- parseLast = parseListOnNL
+parseScalar =  parseNull <|> parseNumber <|> parseString
 
 tokenPFac :: (Token -> Token -> Bool) -> (Token -> Parser Token)
 tokenPFac cmpFunc = tokenP'
@@ -411,9 +329,6 @@ tokenPFac' cmpFunc = tokenP'
                     | otherwise = Right (t', t':ts)
                 func _ = Left "ERR_02B: Empty token list"
 
-tokenPExact :: Token -> Parser Token
-tokenPExact = tokenPFac (==)
-
 tokenP :: Token -> Parser Token
 tokenP = tokenPFac dumbCmp
 
@@ -423,17 +338,11 @@ scalarTokenP = tokenPFac (\_ t2 -> isTokenScalar t2) $ TokenScalarInt 0
 tokenPOptional :: Token -> Parser Token
 tokenPOptional = tokenPFac' dumbCmp
 
-tokenListP :: [Token] -> Parser [Token]
-tokenListP = traverse tokenP
-
 dumbCmp :: Token -> Token -> Bool
 dumbCmp (TokenScalarInt _) (TokenScalarInt _) = True
 dumbCmp (TokenScalarString _) (TokenScalarString _) = True
 dumbCmp (TokenSpaceDiff _) (TokenSpaceDiff _) = True
 dumbCmp t1 t2 = t1 == t2
-
-singleton :: a -> [a]
-singleton a = [a]
 
 parseJsonList =
     tokenP TokenBeginBracketList *>
@@ -447,13 +356,11 @@ parseJsonList =
     )
     <* tokenP TokenEndBracketList
         where
-            -- sep :: Parser Document
             sep :: Parser Token
             sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
             one :: Parser Document
             one = wsnlOptional *> parseJsonMap' <|> parseJsonLike <* wsnlOptional
 
--- parseJsonMap = DMap <$> (some parseKeyValueJson <|> pure [])
 parseJsonMap' =
     wsnlOptional *>
     (
@@ -520,30 +427,18 @@ sdOptional = tokenPOptional (TokenSpaceDiff 0)
 sdStrict :: Parser Token
 sdStrict = tokenP (TokenSpaceDiff 0)
 
-nlStrict :: Parser Token
-nlStrict = tokenP TokenNewLine
-
 parseList :: Parser Document
--- parseList = DList <$> (sdOptional *> some one)
 parseList = DList <$> (
-        --     (((:) <$> first') <*> some one)
-        -- <|> (((:) <$> first') <*> pure [])
-            -- (((:) <$> first) <*> some one) 
-
-            some one
-        <|> (((:) <$> first) <*> pure [])
+                some one
+            <|> (((:) <$> first) <*> pure [])
         )
     where
-        -- first' :: Parser Document
-        -- first' = 
-        --     tokenP TokenDashListItem *> wsOptional *>
-        --     parseYaml
-        --     <* wsnlOptional <* sdStrict
         first :: Parser Document
         first =
             tokenP TokenDashListItem *> wsnlOptional *> sdStrict *>
             parseYaml
             <* wsnlOptional
+
         one :: Parser Document
         one =
             tokenP TokenDashListItem *> wsnlOptional *>
@@ -557,38 +452,18 @@ parseIndented =
     <* wsOptional <* nlOptional <* sdOptional
 
 parseMap :: Parser Document
--- parseMap = DMap <$> ((((:) <$> first) <*> some one) <|> some one)
 parseMap = DMap <$> (
-            -- ((( (:) <$> first ) <*> (many one)) <*> last'' )
-
-            -- <|> (((:) <$> first) <*> (many last'))
             ((((:) <$> first) <*> some one) <|> some one)
         <|> (((:) <$> first) <*> many last')
         <|> some one
     )
-    -- where
-        -- last'' :: Parser [(String, Document)]
-        -- last'' = many last'
-first :: Parser (String, Document)
-first = parseKeyValue <* wsnlOptional <* sdOptional
-
--- last' :: Parser [(String, Document)]
--- last' = (:) <$> last <**>
-last' = parseKeyValue <* wsnlOptional <* sdStrict
-one :: Parser (String, Document)
-one = parseKeyValue
-
-parseMapOnList :: Parser Document
-parseMapOnList = DMap <$> (((:) <$> first) <*> rest <* sdStrict)
     where
         first :: Parser (String, Document)
-        first =
-            (\key _ value -> (key, value)) <$> getStringified <*>
-            ( tokenP TokenKeyColon <* wsnlOptional) <*>
-            parseYaml <* wsnlOptional <* sdStrict
+        first = parseKeyValue <* wsnlOptional <* sdOptional
 
-        rest :: Parser [(String, Document)]
-        rest = some parseKeyValue
+        last' = parseKeyValue <* wsnlOptional <* sdStrict
+        one :: Parser (String, Document)
+        one = parseKeyValue
 
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
@@ -605,5 +480,3 @@ parseKeyValueJson =
 
 getStringified :: Parser String
 getStringified = toYamlStr <$> scalarTokenP
-
-

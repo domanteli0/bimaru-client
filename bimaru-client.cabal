@@ -29,7 +29,6 @@ library
       Lib2
       Lib3
       Parser
-      Testing
       Types
   other-modules:
       Paths_bimaru_client

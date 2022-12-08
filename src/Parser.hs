@@ -12,7 +12,7 @@ import Testing
 import Types(Document(..), ToDocument, toDocument)
 -- import qualified Control.Monad.Trans.Error
 import Data.List (isPrefixOf)
-import Text.Read (readMaybe)
+import Text.Read (readMaybe, Lexeme (String))
 import Data.Maybe (isJust)
 import Control.Applicative
 -- import Data.List (singleton)
@@ -564,8 +564,9 @@ parseList = DList <$> (
         --     (((:) <$> first') <*> some one)
         -- <|> (((:) <$> first') <*> pure [])
             -- (((:) <$> first) <*> some one) 
-
-            some one
+            -- (DMap <$> (_a)) <|>
+            -- some (wrapper <|> one'')
+            some (one'')
         -- <|> (((:) <$> first) <*> some one)
         -- <|> (((:) <$> first) <*> pure [])
         )
@@ -580,11 +581,30 @@ parseList = DList <$> (
         --     tokenP TokenDashListItem *> wsOptional *> nlStrict *> sdStrict *>
         --     parseYaml
         --     <* wsnlOptional
-        one :: Parser Document
-        one =
+        one'' :: Parser Document
+        one'' =
             tokenP TokenDashListItem *> wsnlOptional *>
             parseYaml
+            -- parseE
             <* wsnlOptional
+
+        wrapper :: Parser Document
+        -- wrapper = DMap <$>
+        --     (((:) <$> one <* sdStrict) <*> ( (some one) <* sdStrict))
+        wrapper = DMap <$> (((:) <$> (tokenP TokenDashListItem *> one)) <*> (sdStrict *> (some one) <* sdStrict))
+
+        -- fstMap :: Parser (String, Document)
+        -- fstMap = one <* sdStrict
+
+        middleMap :: Parser [(String, Document)]
+        middleMap = some one
+
+        -- endMap :: Parser (String, Document)
+        -- endMap = sdStrict
+
+parseE :: Parser a
+parseE = Parser $ \input ->
+    error $ show input
 
 parseIndented :: Parser Document
 parseIndented =
@@ -592,7 +612,7 @@ parseIndented =
     parseYaml
     <* wsnlOptional
     -- <* sdStrict
-    <* sdOptional
+    <* sdStrict
     -- <* overrideLeft
     --     sdStrict
     --     "In `parseIndented` `TokenSpaceDiff` was expected, got ERR_02A or ERR_01 instead"
@@ -619,8 +639,8 @@ parseMap = DMap <$> (
         -- '   keyy:      '
         -- '     stuff    '
         -- '   key: asd   '
-        (((:) <$> one <* sdStrict) <*> ( (some one) <* sdStrict)) <|>
-        some one
+        (((:) <$> one) <*> ( sdStrict *> (some one) <* sdStrict)) <|>
+        -- some one
         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
         -- ((((:) <$> one) <*> many (one))) <|>
 
@@ -630,10 +650,10 @@ parseMap = DMap <$> (
         -- '   keyy:      '
         -- '       stuff  '
         -- '   key: asd   '
+        some one
 
         -- (((:) <$> one) <*> many (last' <|> one)) <|>
 
-        -- some one
     )
     -- where
 first, first', last', last'', one :: Parser (String, Document)
@@ -671,7 +691,7 @@ getStringified :: Parser String
 getStringified = toYamlStr <$> scalarTokenP
 
 -- -- -- the glue -- -- --
-parseYaml = parseIndented <|> parseMap <|> parseList <|> parseJsonLike
+parseYaml = parseMap <|> parseIndented  <|> parseList <|> parseJsonLike
 
 -- `parseIndented` is "pushed" as much as possible into the parser chains
 -- without breaking stuff 

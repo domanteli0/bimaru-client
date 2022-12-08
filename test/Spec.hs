@@ -322,8 +322,8 @@ fromYamlTests = testGroup "Document from yaml"
           "    key:",
           "      - fml",
           "      - end me",
-          "  key1: studd",
-          "- 666"
+          "  key1: studd"
+          , "- 666"
         ])
           @?=
             Right (DList [
@@ -332,6 +332,20 @@ fromYamlTests = testGroup "Document from yaml"
                   DMap [("key", DList [DString "fml", DString "end me"])]),
                 ("key1", DString "studd")], 
               DInteger 666])
+      , testCase "List (nl between `-` and map) with a nested map" $ parseDocument (unlines [
+          "- ",
+          "  key:",
+          "    key:",
+          "      - fml",
+          "      - end me",
+          "  key1: studd"
+        ])
+          @?=
+            Right (DList [ DMap [
+                ("key", 
+                  DMap [("key", DList [DString "fml", DString "end me"])]),
+                ("key1", DString "studd")
+                ]])
       , testCase "Single nl scalar" $ parseDocument (unlines [
             "-",
             "  5",

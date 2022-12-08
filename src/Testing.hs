@@ -50,8 +50,9 @@ test3 = unlines [
         "    key:",
         "      - fml",
         "      - end me",
-        "  key1: studd",
-        "- 666"
+        "  key1: studd"
+        -- , "- a"
+        -- , "- 666"
     ]
 
 test4 = unlines [

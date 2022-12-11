@@ -15,7 +15,6 @@ import Data.List (isPrefixOf)
 import Text.Read (readMaybe)
 import Data.Maybe (isJust)
 import Control.Applicative
-import Data.Text.Internal.Read (IParser(runP))
 -- import Data.List (singleton)
 -- import Control.Monad
 
@@ -23,8 +22,6 @@ import Data.Text.Internal.Read (IParser(runP))
 -- - Eilutės galimos tik raidės, skaitmenys ir tarpas
 -- - Eilutės maksimalus ilgis 16
 -- - Rakto maksimalus ilgis 10
-
-todo = error "TODO!"
 
 newtype Parser a = Parser
   { runParser :: [Token] -> Either String (a, [Token])
@@ -48,47 +45,6 @@ instance Alternative Parser where
   empty = Parser $ const $ Left "ERR_00: No parser"
   (Parser p1) <|> (Parser p2) =
       Parser $ \input -> p1 input <|> p2 input
-
-comb :: Parser [a] -> Parser [a] -> Parser [a]
-comb (Parser p1) (Parser p2) =
-    Parser $ \input -> do
-        (a, input') <- p1 input
-        (a', input'') <- p2 input'
-
-        return (a ++ a', input'')
-
-combLOne :: Parser a -> Parser [a] -> Parser [a]
-combLOne (Parser p1) (Parser p2) =
-    Parser $ \input -> do
-        (a, input') <- p1 input
-        (a', input'') <- p2 input'
-
-        return (a : a', input'')
-
--- combROne :: Parser [a] -> Parser a -> Parser [a]
-combROne :: Parser a -> Parser a -> Parser [a]
-combROne p1 (Parser p2) =
-    Parser $ \input -> do
-        (a, input') <- runParser (many p1) input
-        (a', input'') <- p2 input'
-
-        return (a ++ [a'], input'')
-
-combOne :: Parser a -> Parser a -> Parser [a]
-combOne (Parser p1) (Parser p2) =
-    Parser $ \input -> do
-        (a, input') <- p1 input
-        (a', input'') <- p2 input'
-
-        return ([a, a'], input'')
-
-overrideLeft :: Parser a -> String -> Parser a
-overrideLeft (Parser p1) str =
-    Parser $ \input -> do
-        case p1 input of
-            Right r -> Right r
-            Left _ -> Left str
-
 
 -- YamlToken is purposefully not recursive
 -- `tokenizeYaml` makes a guarante what
@@ -114,7 +70,7 @@ data Token =
     | TokenEndBracketList
     | TokenCollectionSep
     | TokenNewLine
-    | TokenNone
+
     -- ^ meant to symbolize what nothing was parsed, but shouldn't be an error
     deriving (Show, Eq)
 
@@ -127,14 +83,6 @@ toYamlStr _ = undefined
 isTokenNewLine TokenNewLine = True
 isTokenNewLine _ = False
 
-isTokenScalarInt (TokenScalarInt _) = True
-isTokenScalarInt _ = False
-
-isTokenScalarString (TokenScalarString _) = True
-isTokenScalarString _ = False
-
-isTokenScalarNull TokenScalarNull = True
-isTokenScalarNull _ = False
 
 isTokenSpace (TokenSpace _) = True
 isTokenSpace _              = False
@@ -144,26 +92,8 @@ isTokenScalar (TokenScalarString _) = True
 isTokenScalar TokenScalarNull       = True
 isTokenScalar _                     = False
 
--- isTokenSpaceDiff (TokenSpaceDiff _) = True
--- isTokenSpaceDiff _                  = False
-
-isTokenKeyColon TokenKeyColon  = True
-isTokenKeyColon _              = False
-
 isTokenDashListItem TokenDashListItem = True
 isTokenDashListItem _ = False
-
--- removeTokenSpaceDiff :: [Token] -> [Token]
--- removeTokenSpaceDiff ((TokenSpaceDiff _):ts) = ts
--- removeTokenSpaceDiff ts = ts
-
-removeTokenDashListItem :: [Token] -> [Token]
-removeTokenDashListItem (TokenDashListItem:ts) = ts
-removeTokenDashListItem ts = ts
--- isTokenEndOfDocument TokenEndOfDocument = True
--- isTokenEndOfDocument _ = False
---                         Indentation Token on the line
--- data InfoToken = InfoToken Int         [Token]
 
 instance ToDocument Token where
     toDocument (TokenScalarString str) = DString str
@@ -178,9 +108,6 @@ tokenizeYaml "" = []
 tokenizeYaml str = pipeline str
     where
         pipeline str' = (
-            -- normalizeDashListItem .
-            -- splitDiff .
-            -- diff .
             normalizeDashListItem .
             filter' .
             normalizeWhitespace .
@@ -191,6 +118,7 @@ tokenizeYaml str = pipeline str
             ensureNL
             ) str'
 
+        -- removes whitespace after `TokenDashListItem`
         filter' :: [Token] -> [Token]
         filter' tkns = snd $ filter'' tkns []
             where
@@ -198,7 +126,6 @@ tokenizeYaml str = pipeline str
                 filter'' [] ts = ([], ts)
                 filter'' (TokenDashListItem:(TokenSpace _):TokenNewLine:ts) ts' = filter'' ts (ts' ++ [TokenDashListItem, TokenNewLine])
                 filter'' (t:ts) ts' = filter'' ts (ts' ++ [t])
-
 
         tokenizeYaml' :: String -> [Token]
         tokenizeYaml' "" = []
@@ -230,11 +157,21 @@ tokenizeYaml str = pipeline str
                 -- `unknownChars` is ensured to be a list of only TokenUnknown
                 -- thus `getUnknown` is called only to unpack the char inside TokenUnknown
 
-
-        -- matches cases with nested lists on the same line, such as:
-        -- '- - 5'
-        -- '  - 6'
-        -- '- 7  '
+        -- normalizes lists as such:
+        -- '- - 5         '
+        -- '- key0: value0'
+        -- '  key1: value1'
+        -- '- null        '
+        --     TO THIS
+        -- '-             '
+        -- '  -           '
+        -- '     5        '
+        -- '-             '
+        -- '  key0: value0'
+        -- '  key1: value1'
+        -- '-             '
+        -- '  null        '
+        -- this eliminates the need to maintain several types of parsers
         normalizeDashListItem :: [Token] -> [Token]
         normalizeDashListItem tkns = snd $ normalizeDashListItem' tkns [] 0
             where
@@ -357,16 +294,6 @@ tokenPFac cmpFunc = tokenP'
                     | otherwise = Left $ "ERR_01: Coudn't match a token, expected: " ++ show t ++ ", got: " ++ show (t':ts)
                 func _ = Left "ERR_02A: Empty token list"
 
-tokenPOpFac :: (Token -> Token -> Bool) -> (Token -> Parser Token)
-tokenPOpFac cmpFunc = tokenP'
-    where
-        tokenP' t = Parser func
-            where
-                func (t':ts)
-                    | t `cmpFunc` t' = Right (t', ts)
-                    | otherwise = Right (t', t':ts)
-                func [] = Right (TokenNone, [])
-                -- func _ = Left "ERR_02B: Empty token list"
 
 tokenP :: Token -> Parser Token
 tokenP = tokenPFac dumbCmp
@@ -374,20 +301,11 @@ tokenP = tokenPFac dumbCmp
 scalarTokenP :: Parser Token
 scalarTokenP = tokenPFac (\_ t2 -> isTokenScalar t2) $ TokenScalarInt 1
 
-tokenPOptional :: Token -> Parser Token
-tokenPOptional = tokenPOpFac dumbCmp
-
-tokenListP :: [Token] -> Parser [Token]
-tokenListP = traverse tokenP
-
 dumbCmp :: Token -> Token -> Bool
 dumbCmp (TokenScalarInt _) (TokenScalarInt _) = True
 dumbCmp (TokenScalarString _) (TokenScalarString _) = True
 dumbCmp (TokenSpace _) (TokenSpace _) = True
 dumbCmp t1 t2 = t1 == t2
-
-singleton :: a -> [a]
-singleton a = [a]
 
 parseJsonList =
     wsOptional *> tokenP TokenBeginBracketList *>
@@ -401,13 +319,11 @@ parseJsonList =
     )
     <* tokenP TokenEndBracketList
         where
-            -- sep :: Parser Document
             sep :: Parser Token
             sep = wsOptional *> tokenP TokenCollectionSep <* wsOptional
             one :: Parser Document
             one = wsOptional *> parseJsonLike <* wsOptional
 
--- parseJsonMap = DMap <$> (some parseKeyValueJson <|> pure [])
 parseJsonMap' =
     wsOptional *>
     (
@@ -465,19 +381,6 @@ nlOptional = spanP isTokenNewLine
 wsOptional :: Parser [Token]
 wsOptional = spanP isTokenSpace
 
--- wsnlOptional :: Parser [Token]
--- wsnlOptional = spanP (\t -> isTokenSpace t || isTokenNewLine t)
-
--- wsnlsdOptional :: Parser [Token]
--- wsnlsdOptional = (spanP (\t -> isTokenSpace t || isTokenNewLine t)) *> tokenPOptional TokenSpaceDiff 0
-
--- sdOptional :: Parser Token
--- sdOptional = tokenPOptional (TokenSpaceDiff 0)
-
--- sdStrict :: Parser Token
--- -- sdStrict = overrideLeft (tokenP (TokenSpaceDiff 0)) "TokenSpaceDiff expected, but ERR_02A or ERR_01 happened"
--- sdStrict = tokenP (TokenSpaceDiff 0)
-
 nlStrict :: Parser Token
 nlStrict = tokenP TokenNewLine
 
@@ -511,31 +414,19 @@ parseList' = Parser $ \input -> do
             (ind, ts) <- parseTokenSpace input
             let ind' = unsafeGetTokenSpace ind
 
+            (_, ts') <- runParser (tokenP TokenDashListItem <* wsOptional <*  nlOptional) ts
+            (doc, ts''') <- runParser parseYaml ts'
+            return ((ind', doc), ts''')
 
-            (_, ts') <- runParser (tokenP TokenDashListItem) ts
-            case runParser (tokenP TokenDashListItem) ts' of
-                Left _ -> do
-                    (_, ts'') <- runParser (wsOptional <*  nlOptional) ts'
-                    (doc, ts''') <- runParser parseYaml ts''
-                    return ((ind', doc), ts''')
-                Right (_, _) -> Left "same line is unsuported"
-                    -- (_, ts''') <- runParser (wsOptional <*  nlOptional) ts''
-                    -- (doc, ts'''') <- runParser (latter (ind' + 2)) ts'''
-                    -- return ((ind' + 2, doc), ts'''')
-
-        -- one :: Parser Document
-        -- one = wsOptional *> tokenP TokenDashListItem *> parseScalar <* wsnlOptional
         latter :: Int -> Parser Document
         latter ind = Parser $ \input -> do
             (ind', ts) <- parseTokenSpace input
             let ind'' = unsafeGetTokenSpace ind'
-            (_, ts') <- runParser ((tokenP TokenDashListItem) <* wsOptional <* nlOptional) ts
+            (_, ts') <- runParser (tokenP TokenDashListItem <* wsOptional <* nlOptional) ts
             (doc, ts'') <- runParser parseYaml ts'
-            -- (ind, ) <- runParser tokenP TokenDashListItem
 
             if ind /= ind'' then
                 Left "Mismacthed indentation" else
-                -- error $ "input: " ++ show input
                 Right (doc, ts'')
 
 parseMap :: Parser Document
@@ -558,96 +449,21 @@ parseMap' = Parser $ \input -> do
             (doc, ts') <- runParser parseKeyValue ts
             return ((ind', doc), ts')
 
-        -- one :: Parser Document
-        -- one = wsOptional *> tokenP TokenDashListItem *> parseScalar <* wsnlOptional
         latter :: Int -> Parser (String, Document)
         latter ind = Parser $ \input -> do
             (ind', ts) <- parseTokenSpace input
             let ind'' = unsafeGetTokenSpace ind'
             (doc, ts') <- runParser parseKeyValue ts
-            -- (ind, ) <- runParser tokenP TokenDashListItem
 
             if ind /= ind'' then
                 Left "Mismacthed indentation" else
-                -- error $ "input: " ++ show input
                 Right (doc, ts')
-
--- parseList = DList <$> some one''
---     where
---         one'' :: Parser Document
---         one'' =
---             tokenP TokenDashListItem *> wsnlOptional *>
---             parseYaml
---             <* wsnlOptional
-
-parseE :: Parser a
-parseE = Parser $ \input ->
-    error $ show input
-
--- parseIndented :: Parser Document
--- parseIndented =
---     wsnlOptional *> sdStrict *>
---     parseYaml
---     <* wsnlOptional
---     -- <* sdStrict
---     <* sdStrict
-    -- <* overrideLeft
-    --     sdStrict
-    --     "In `parseIndented` `TokenSpaceDiff` was expected, got ERR_02A or ERR_01 instead"
-
-
--- NOTE: `<*` has higher priority than `<|>`
--- parseMap :: Parser Document
--- -- parseMap = DMap <$> ((((:) <$> first) <*> many one) <|> many last')
--- parseMap = DMap <$> (
-
---         -- 👇 problematic misparses testCase "List (nl between `-` and map) with a nested map"
---         -- ((((:) <$> one') <*> many (last' <|> one' <|> one))) <|>
-
---         -- ((((:) <$> one') <*> many (one))) <|>
---         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
---         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
-
---         -- (((:) <$> first') <*> (many (last'' <|> one)))
-
-
---         -- map on list branch, i.e.: [DOESN'T WORK]  
---         -- normal branch, i.e.:
---         -- ' - key: stuuf '
---         -- '   keyy:      '
---         -- '     stuff    '
---         -- '   key: asd   '
---         (((:) <$> kvp <* sdStrict) <*> ((some kvp) <* sdStrict)) <|>
---         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
---         -- ((((:) <$> one) <*> many (one))) <|>
-
---         -- normal branch, i.e.:
---         -- ' -            '
---         -- '   key: stuuf '
---         -- '   keyy:      '
---         -- '       stuff  '
---         -- '   key: asd   '
---         some kvp
-
---         -- (((:) <$> one) <*> many (last' <|> one)) <|>
---     )
--- kvp = parseKeyValue
--- kvp = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
-
--- parseKeyValueOnNL :: Parser (String, Document)
--- parseKeyValueOnNL =
---       (\key _ value -> (key, value)) <$> getStringified <*>
---       ( tokenP TokenKeyColon <* wsOptional <* nlOptional) <*>
---     --   parseYaml
---     --   parseYaml <* sdOptional
---       parseYaml <* sdStrict
 
 parseKeyValue :: Parser (String, Document)
 parseKeyValue =
       (\key _ value -> (key, value)) <$> getStringified <*>
       ( tokenP TokenKeyColon <* wsOptional <* nlOptional) <*>
       parseYaml
-
 
 parseKeyValueJson :: Parser (String, Document)
 parseKeyValueJson =
@@ -666,7 +482,5 @@ getStringified = toYamlStr <$> scalarTokenP
 -- -- -- the glue -- -- --
 parseYaml = parseMap <|> parseList <|> parseScalar <|> parseJsonLike
 
--- `parseIndented` is "pushed" as much as possible into the parser chains
--- without breaking stuff 
 parseJsonLike = parseJsonMap <|> parseJsonList <|> parseKeyValueJsonWrapper <|> parseScalar
 parseScalar =  parseNull <|> parseNumber <|> parseString

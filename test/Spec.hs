@@ -437,10 +437,10 @@ fromYamlTests = testGroup "Document from yaml"
             DMap [("bejjKf", DInteger (-3)), ("FYVfRg", DString " "), ("I", DList []), ("Omc", DString "2 o")]
             , DString ""
           ])
-      , testCase "Keyless map" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument (unlines [ ": value" ])
-      , testCase "key:key:value madness" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft (parseDocument "key: key: value")
-      , testCase "too key:key too value" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument "key: key: value: value"
-      , testCase "key:key:value electric valuegaloo" $ assertBool "you parsed something you shouldn't have 🤥" $ isLeft $ parseDocument "key: key: value: value: key"
+      , testCase "Keyless map" $ isLeft (parseDocument (unlines [ ": value" ])) @? "you parsed something you shouldn't have 🤥"
+      , testCase "key:key:value madness" $ isLeft (parseDocument "key: key: value") @? "you parsed something you shouldn't have 🤥"
+      , testCase "too key:key too value" $ isLeft (parseDocument "key: key: value: value") @? "you parsed something you shouldn't have 🤥"
+      , testCase "key:key:value electric valuegaloo" $ isLeft (parseDocument "key: key: value: value: key") @? "you parsed something you shouldn't have 🤥"
   ]
 
 toYamlTests :: TestTree

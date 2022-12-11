@@ -22,7 +22,7 @@ main = defaultMain (testGroup "Tests" [
   properties])
 
 properties :: TestTree
-properties = testGroup "Properties" [golden, dogfood]
+properties = testGroup "Properties" [dogfood, golden]
 
 friendlyEncode :: Document -> String
 friendlyEncode doc = cs (Y.encodeWith (setFormat (setWidth Nothing defaultFormatOptions) defaultEncodeOptions) doc)
@@ -41,7 +41,6 @@ dogfood = testGroup "Eating your own dogfood"
       \doc -> parseDocument (renderDocument doc) == Right doc
   ]
 
-
 tokenizeYamlTests :: TestTree
 tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
     testCase "joinUnknown" $
@@ -49,8 +48,10 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "- \"test\"",
         "- asd"
       ])) @?= [
-        TokenSpace 0, TokenDashListItem, TokenScalarString "test", TokenNewLine,
-        TokenSpace 0, TokenDashListItem, TokenScalarString "asd", TokenNewLine
+        TokenSpace 0, TokenDashListItem, TokenNewLine,
+          TokenSpace 2, TokenScalarString "test", TokenNewLine,
+        TokenSpace 0, TokenDashListItem, TokenNewLine,
+          TokenSpace 2, TokenScalarString "asd", TokenNewLine
       ]
   -- , testCase "diff" $ tokenizeYaml (unlines [
   --     "- 6",
@@ -66,10 +67,10 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
   --     TokenSpaceDiff (-2), TokenDashListItem, TokenScalarInt 3, TokenNewLine
   --   ]
   , testCase "joinBetweenScalar" $
-    tokenizeYaml "foo    bar: f o o o b a a r" @?= [
-      TokenSpace 0, TokenScalarString "foo    bar", TokenKeyColon, TokenScalarString "f o o o b a a r", TokenNewLine
+    tokenizeYaml "foo    bar s: f o o o b a a r" @?= [
+      TokenSpace 0, TokenScalarString "foo    bar s", TokenKeyColon, TokenScalarString "f o o o b a a r", TokenNewLine
     ]
-  , testCase "TODO: Test case name" $
+  , testCase "Complex string" $
       tokenizeYaml (unlines [
           "- \"test",
           " test \\\"",
@@ -80,9 +81,11 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         ]
         -- unlines ["- \"test", " test \\\"", "", "- \""," - "]
         ) @?= [
-          TokenSpace 0, TokenDashListItem, TokenScalarString "test\n test \\\"\n\n- ", TokenNewLine,
           TokenSpace 0, TokenDashListItem, TokenNewLine,
-          TokenSpace 2, TokenDashListItem, TokenScalarString "test", TokenNewLine
+            TokenSpace 2, TokenScalarString "test\n test \\\"\n\n- ", TokenNewLine,
+          TokenSpace 0, TokenDashListItem, TokenNewLine,
+          TokenSpace 2, TokenDashListItem, TokenNewLine,
+            TokenSpace 4, TokenScalarString "test", TokenNewLine
         ]
     , testCase "Nested list" $ tokenizeYaml (unlines [
         "List:",
@@ -96,14 +99,19 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "    - null"
       ]) @?= [
         TokenSpace 0, TokenScalarString "List", TokenKeyColon, TokenNewLine,
-        TokenSpace 0, TokenDashListItem, TokenScalarInt 5, TokenNewLine,
-        TokenSpace 0, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
+        TokenSpace 0, TokenDashListItem, TokenNewLine,
+          TokenSpace 2, TokenScalarInt 5, TokenNewLine,
+        TokenSpace 0, TokenDashListItem, TokenNewLine, 
+          TokenSpace 2, TokenScalarInt 6, TokenNewLine,
         TokenSpace 0, TokenDashListItem, TokenNewLine,
         TokenSpace 2, TokenScalarString "Lol  asd", TokenKeyColon, TokenScalarString "lol", TokenNewLine,
         TokenSpace 2, TokenScalarString "List", TokenKeyColon, TokenNewLine,
-        TokenSpace 4, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
-        TokenSpace 4, TokenDashListItem, TokenScalarInt 9, TokenNewLine,
-        TokenSpace 4, TokenDashListItem, TokenScalarNull, TokenNewLine
+        TokenSpace 4, TokenDashListItem, TokenNewLine,
+          TokenSpace 6, TokenScalarInt 6, TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenNewLine,
+          TokenSpace 6, TokenScalarInt 9, TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenNewLine,
+          TokenSpace 6, TokenScalarNull, TokenNewLine
       ]
   ]
 

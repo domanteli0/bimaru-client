@@ -239,11 +239,17 @@ tokenizeYaml str = pipeline str
                 normalizeDashListItem' :: [Token] -> [Token] -> Int -> ([Token], [Token])
                 normalizeDashListItem' [] ts _ = ([], ts)
 
-                normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts) ts' acc = 
+                normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts) ts' acc =
                     normalizeDashListItem' (TokenDashListItem:ts) (ts' ++ [TokenDashListItem, TokenNewLine, TokenSpace (acc + 2)]) (acc + 2)
-
                 normalizeDashListItem' ((TokenSpace i):ts) ts' _ = normalizeDashListItem' ts (ts' ++ [TokenSpace i]) i
-                normalizeDashListItem' (t:ts) ts' acc = normalizeDashListItem' ts (ts' ++ [t]) acc
+
+                normalizeDashListItem' (t1:ts) ts' acc
+                    | isTokenDashListItem t1 && not (isTokenNewLine (head ts)) = do
+                        let (line, rest) = break isTokenNewLine ts
+                        normalizeDashListItem' rest (ts' ++ [TokenDashListItem, TokenNewLine, TokenSpace (acc + 2)] ++ line) (acc + 2)
+
+                    | otherwise = normalizeDashListItem' ts (ts' ++ [t1]) acc
+                -- normalizeDashListItem' (t:ts) ts' acc = normalizeDashListItem' ts (ts' ++ [t]) acc
 
         -- adds `TokenSpace 0` at the start of line, where there are none, i think...
         normalizeWhitespace :: [Token] -> [Token]

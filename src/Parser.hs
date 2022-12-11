@@ -3,6 +3,7 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
 {-# HLINT ignore "Eta reduce" #-}
+{-# HLINT ignore "Use !!" #-}
 -- module Parser(parse, Token(..), tokenizeYaml, first, last', one) where
 module Parser(parse, Token(..), tokenizeYaml) where
 
@@ -14,6 +15,7 @@ import Data.List (isPrefixOf)
 import Text.Read (readMaybe)
 import Data.Maybe (isJust)
 import Control.Applicative
+import Data.Text.Internal.Read (IParser(runP))
 -- import Data.List (singleton)
 -- import Control.Monad
 
@@ -249,7 +251,6 @@ tokenizeYaml str = pipeline str
                         normalizeDashListItem' rest (ts' ++ [TokenDashListItem, TokenNewLine, TokenSpace (acc + 2)] ++ line) (acc + 2)
 
                     | otherwise = normalizeDashListItem' ts (ts' ++ [t1]) acc
-                -- normalizeDashListItem' (t:ts) ts' acc = normalizeDashListItem' ts (ts' ++ [t]) acc
 
         -- adds `TokenSpace 0` at the start of line, where there are none, i think...
         normalizeWhitespace :: [Token] -> [Token]
@@ -277,9 +278,6 @@ tokenizeYaml str = pipeline str
                 joinBetweenScalar'
                     ((TokenInternalScalarUnknown str1):(TokenSpace times):(TokenInternalScalarUnknown str2):ts, ts')
                         = joinBetweenScalar' (TokenInternalScalarUnknown (str1 ++ replicate times ' ' ++ str2) : ts, ts')
-                -- joinBetweenScalar'
-                    -- ((TekenDashListItem):(TokenSpace times):(TekenDashListItem str2):ts, ts')
-                    --     = joinBetweenScalar' (TokenInternalScalarUnknown (str1 ++ replicate times ' ' ++ str2) : ts, ts')
                 joinBetweenScalar' (t:ts, ts') = joinBetweenScalar' (ts, ts' ++ [t])
 
         tokenize :: String -> ([Token], String)
@@ -340,9 +338,6 @@ tokenizeYaml str = pipeline str
                                 unJust (Just i) = i
                                 unJust Nothing = undefined
                 func t = t
-
--- if, by now, you're wondering if the whole
---  ~ ~ l e t ' s  t o k e n i z e ~ ~ thing was a mistake, it was
 
 -- -- -- parsing -- -- --
 
@@ -660,6 +655,11 @@ parseKeyValueJson =
       ( tokenP TokenKeyColon <* wsOptional) <*>
       parseJsonLike <* wsOptional
 
+parseKeyValueJsonWrapper :: Parser Document
+parseKeyValueJsonWrapper = Parser $ \input -> do
+    (kvp, rest) <- runParser parseKeyValueJson input
+    return (DMap [kvp], rest)
+
 getStringified :: Parser String
 getStringified = toYamlStr <$> scalarTokenP
 
@@ -668,5 +668,5 @@ parseYaml = parseMap <|> parseList <|> parseScalar <|> parseJsonLike
 
 -- `parseIndented` is "pushed" as much as possible into the parser chains
 -- without breaking stuff 
-parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
+parseJsonLike = parseJsonMap <|> parseJsonList <|> parseKeyValueJsonWrapper <|> parseScalar
 parseScalar =  parseNull <|> parseNumber <|> parseString

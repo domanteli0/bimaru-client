@@ -22,7 +22,7 @@ main = defaultMain (testGroup "Tests" [
   properties])
 
 properties :: TestTree
-properties = testGroup "Properties" [dogfood, golden]
+properties = testGroup "Properties" [golden, dogfood]
 
 friendlyEncode :: Document -> String
 friendlyEncode doc = cs (Y.encodeWith (setFormat (setWidth Nothing defaultFormatOptions) defaultEncodeOptions) doc)
@@ -437,10 +437,6 @@ fromYamlTests = testGroup "Document from yaml"
             DMap [("bejjKf", DInteger (-3)), ("FYVfRg", DString " "), ("I", DList []), ("Omc", DString "2 o")]
             , DString ""
           ])
-      , testCase "Keyless map" $ isLeft (parseDocument (unlines [ ": value" ])) @? "you parsed something you shouldn't have 🤥"
-      , testCase "key:key:value madness" $ isLeft (parseDocument "key: key: value") @? "you parsed something you shouldn't have 🤥"
-      , testCase "too key:key too value" $ isLeft (parseDocument "key: key: value: value") @? "you parsed something you shouldn't have 🤥"
-      , testCase "key:key:value electric valuegaloo" $ isLeft (parseDocument "key: key: value: value: key") @? "you parsed something you shouldn't have 🤥"
   ]
 
 toYamlTests :: TestTree

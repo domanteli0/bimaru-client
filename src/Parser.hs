@@ -1,22 +1,15 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use first" #-}
 {-# HLINT ignore "Eta reduce" #-}
 {-# HLINT ignore "Use !!" #-}
--- module Parser(parse, Token(..), tokenizeYaml, first, last', one) where
 module Parser(parse, Token(..), tokenizeYaml) where
 
--- TODO: remove Testing
-import Testing -- <- for use in ghci
 import Types(Document(..), ToDocument, toDocument)
--- import qualified Control.Monad.Trans.Error
 import Data.List (isPrefixOf)
 import Text.Read (readMaybe)
 import Data.Maybe (isJust)
 import Control.Applicative
--- import Data.List (singleton)
--- import Control.Monad
 
 -- - Raktai neturės "specialių" simbolių, o tik raides
 -- - Eilutės galimos tik raidės, skaitmenys ir tarpas
@@ -324,13 +317,6 @@ parseJsonList =
             one :: Parser Document
             one = wsOptional *> parseJsonLike <* wsOptional
 
-parseJsonMap' =
-    wsOptional *>
-    (
-        DMap <$> some parseKeyValueJson
-    )
-    <* wsOptional
-
 parseJsonMap =
     wsOptional *> tokenP TokenBeginMapping *>
     wsOptional *>
@@ -380,9 +366,6 @@ nlOptional = spanP isTokenNewLine
 -- whitespace skip
 wsOptional :: Parser [Token]
 wsOptional = spanP isTokenSpace
-
-nlStrict :: Parser Token
-nlStrict = tokenP TokenNewLine
 
 unsafeGetTokenSpace :: Token -> Int
 unsafeGetTokenSpace (TokenSpace i) = i

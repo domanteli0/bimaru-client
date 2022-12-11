@@ -11,13 +11,11 @@ import Data.String.Conversions (cs)
 --     ]
 
 test0 :: String
-test0 =
-    unlines [
-        "-",
-        "   -",
-        "      -",
-        "         lll",
-        "   - ll"
+test0 = unlines [
+        "key:",
+        "    key:",
+        "      - fml",
+        "      - end mi"
     ]
 -- test0 :: String
 -- test0 =
@@ -65,15 +63,8 @@ test3 = unlines [
         , "- 666"
     ]
 
-test4 = unlines [
-        "- ",
-        "  key:",
-        "    key:",
-        "      - fml",
-        "      - end me",
-        "  key1: studd",
-        "- 666"
-    ]
+test4 :: String
+test4 = "[4, 5, 6, \"lol\",'no']"
 
 -- test3 :: String
 -- test3 = unlines [

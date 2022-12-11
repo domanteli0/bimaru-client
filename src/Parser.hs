@@ -468,50 +468,50 @@ dumbCmp t1 t2 = t1 == t2
 singleton :: a -> [a]
 singleton a = [a]
 
--- parseJsonList =
---     tokenP TokenBeginBracketList *>
---     (
---         DList <$>
---             ((((:) <$> one)
---                 <*>
---             many (sep *> one))
---                 <|>
---             pure [])
---     )
---     <* tokenP TokenEndBracketList
---         where
---             -- sep :: Parser Document
---             sep :: Parser Token
---             sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
---             one :: Parser Document
---             one = wsnlOptional *> parseJsonMap' <|> parseJsonLike <* wsnlOptional
+parseJsonList =
+    wsOptional *> tokenP TokenBeginBracketList *>
+    (
+        DList <$>
+            ((((:) <$> one)
+                <*>
+            many (sep *> one))
+                <|>
+            pure [])
+    )
+    <* tokenP TokenEndBracketList
+        where
+            -- sep :: Parser Document
+            sep :: Parser Token
+            sep = wsOptional *> tokenP TokenCollectionSep <* wsOptional
+            one :: Parser Document
+            one = wsOptional *> parseJsonLike <* wsOptional
 
--- -- parseJsonMap = DMap <$> (some parseKeyValueJson <|> pure [])
--- parseJsonMap' =
---     wsnlOptional *>
---     (
---         DMap <$> some parseKeyValueJson
---     )
---     <* wsnlOptional
+-- parseJsonMap = DMap <$> (some parseKeyValueJson <|> pure [])
+parseJsonMap' =
+    wsOptional *>
+    (
+        DMap <$> some parseKeyValueJson
+    )
+    <* wsOptional
 
--- parseJsonMap =
---     tokenP TokenBeginMapping *>
---     wsnlOptional *>
---     (
---         DMap <$>
---             ((((:) <$> one)
---                 <*>
---             many (sep *> one))
---                 <|>
---             pure [])
---     )
---     <* wsnlOptional
---     <* tokenP TokenEndMapping
---     where
---         sep :: Parser Token
---         sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
---         one :: Parser (String, Document)
---         one = wsnlOptional *> parseKeyValueJson <* wsnlOptional
+parseJsonMap =
+    wsOptional *> tokenP TokenBeginMapping *>
+    wsOptional *>
+    (
+        DMap <$>
+            ((((:) <$> one)
+                <*>
+            many (sep *> one))
+                <|>
+            pure [])
+    )
+    <* wsOptional
+    <* tokenP TokenEndMapping
+    where
+        sep :: Parser Token
+        sep = wsOptional *> tokenP TokenCollectionSep <* wsOptional
+        one :: Parser (String, Document)
+        one = wsOptional *> parseKeyValueJson <* wsOptional
 
 parseNull :: Parser Document
 parseNull = wsOptional *> (DNull <$ tokenP TokenScalarNull)
@@ -608,8 +608,39 @@ parseList' = Parser $ \input -> do
                 -- error $ "input: " ++ show input
                 Right (doc, ts'')
 
+parseMap :: Parser Document
+parseMap = Parser $ \input -> do
+    (docs, ts) <- runParser parseMap' input
+    return (DMap docs, ts)
 
+parseMap' :: Parser [(String, Document)]
+parseMap' = Parser $ \input -> do
+    ((ind, doc), ts) <- runParser (first <* nlOptional) input
+    (docs, ts') <- runParser (many (latter ind <* nlOptional)) ts
 
+    Right (doc:docs, ts')
+
+    where
+        first :: Parser (Int, (String, Document))
+        first = Parser $ \input -> do
+            (ind, ts) <- parseTokenSpace input
+            let ind' = unsafeGetTokenSpace ind
+            (doc, ts') <- runParser parseKeyValue ts
+            return ((ind', doc), ts')
+
+        -- one :: Parser Document
+        -- one = wsOptional *> tokenP TokenDashListItem *> parseScalar <* wsnlOptional
+        latter :: Int -> Parser (String, Document)
+        latter ind = Parser $ \input -> do
+            (ind', ts) <- parseTokenSpace input
+            let ind'' = unsafeGetTokenSpace ind'
+            (doc, ts') <- runParser parseKeyValue ts
+            -- (ind, ) <- runParser tokenP TokenDashListItem
+
+            if ind /= ind'' then
+                Left "Mismacthed indentation" else
+                -- error $ "input: " ++ show input
+                Right (doc, ts')
 
 -- parseList = DList <$> some one''
 --     where
@@ -681,26 +712,26 @@ parseE = Parser $ \input ->
 --     --   parseYaml <* sdOptional
 --       parseYaml <* sdStrict
 
--- parseKeyValue :: Parser (String, Document)
--- parseKeyValue =
---       (\key _ value -> (key, value)) <$> getStringified <*>
---       ( tokenP TokenKeyColon <* wsnlOptional) <*>
---       parseYaml
+parseKeyValue :: Parser (String, Document)
+parseKeyValue =
+      (\key _ value -> (key, value)) <$> getStringified <*>
+      ( tokenP TokenKeyColon <* wsOptional <* nlOptional) <*>
+      parseYaml
 
 
--- parseKeyValueJson :: Parser (String, Document)
--- parseKeyValueJson =
---       (\key _ value -> (key, value)) <$> getStringified <*>
---       ( tokenP TokenKeyColon <* wsnlOptional) <*>
---       parseJsonLike <* wsnlOptional
+parseKeyValueJson :: Parser (String, Document)
+parseKeyValueJson =
+      (\key _ value -> (key, value)) <$> getStringified <*>
+      ( tokenP TokenKeyColon <* wsOptional) <*>
+      parseJsonLike <* wsOptional
 
--- getStringified :: Parser String
--- getStringified = toYamlStr <$> scalarTokenP
+getStringified :: Parser String
+getStringified = toYamlStr <$> scalarTokenP
 
 -- -- -- the glue -- -- --
-parseYaml = parseList <|> parseScalar
+parseYaml = parseMap <|> parseList <|> parseScalar <|> parseJsonLike
 
 -- `parseIndented` is "pushed" as much as possible into the parser chains
 -- without breaking stuff 
--- parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
+parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
 parseScalar =  parseNull <|> parseNumber <|> parseString

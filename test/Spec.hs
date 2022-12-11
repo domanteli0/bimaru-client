@@ -368,7 +368,7 @@ fromYamlTests = testGroup "Document from yaml"
       , testCase "Simple map of single keyval" $ parseDocument
           "key0: value0" @?= Right (DMap [("key0", DString "value0")])
       , testCase "Simple map of single keyval" $ parseDocument
-        (unlines[
+        (unlines [
           "key0: value0",
           "key1: value1",
           "key2: value2"

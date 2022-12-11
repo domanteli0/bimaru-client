@@ -49,12 +49,8 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "- \"test\"",
         "- asd"
       ])) @?= [
-        TokenDashListItem,
-        TokenScalarString "test",
-        TokenNewLine,
-        TokenDashListItem,
-        TokenScalarString "asd",
-        TokenNewLine
+        TokenSpace 0, TokenDashListItem, TokenScalarString "test", TokenNewLine,
+        TokenSpace 0, TokenDashListItem, TokenScalarString "asd", TokenNewLine
       ]
   -- , testCase "diff" $ tokenizeYaml (unlines [
   --     "- 6",
@@ -71,10 +67,7 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
   --   ]
   , testCase "joinBetweenScalar" $
     tokenizeYaml "foo    bar: f o o o b a a r" @?= [
-      TokenScalarString "foo    bar",
-      TokenKeyColon,
-      TokenScalarString "f o o o b a a r",
-      TokenNewLine
+      TokenSpace 0, TokenScalarString "foo    bar", TokenKeyColon, TokenScalarString "f o o o b a a r", TokenNewLine
     ]
   , testCase "TODO: Test case name" $
       tokenizeYaml (unlines [
@@ -87,11 +80,9 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         ]
         -- unlines ["- \"test", " test \\\"", "", "- \""," - "]
         ) @?= [
-          TokenDashListItem,
-          TokenScalarString "test\n test \\\"\n\n- ", TokenNewLine,
-          TokenDashListItem, TokenNewLine,
-          TokenSpaceDiff 2, TokenDashListItem, TokenScalarString "test", TokenNewLine,
-          TokenSpaceDiff (-2), TokenNewLine
+          TokenSpace 0, TokenDashListItem, TokenScalarString "test\n test \\\"\n\n- ", TokenNewLine,
+          TokenSpace 0, TokenDashListItem, TokenNewLine,
+          TokenSpace 2, TokenDashListItem, TokenScalarString "test", TokenNewLine
         ]
     , testCase "Nested list" $ tokenizeYaml (unlines [
         "List:",
@@ -104,14 +95,14 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "    - 9",
         "    - null"
       ]) @?= [TokenScalarString "List", TokenKeyColon, TokenNewLine,
-        TokenDashListItem, TokenScalarInt 5, TokenNewLine,
-        TokenDashListItem, TokenScalarInt 6, TokenNewLine,
-        TokenDashListItem, TokenNewLine,
-        TokenSpaceDiff 2, TokenScalarString "Lol  asd", TokenKeyColon, TokenScalarString "lol", TokenNewLine,
-        TokenScalarString "List", TokenKeyColon, TokenNewLine,
-        TokenSpaceDiff 2, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
-        TokenDashListItem, TokenScalarInt 9, TokenNewLine,
-        TokenDashListItem, TokenScalarNull, TokenNewLine, TokenSpaceDiff (-2), TokenSpaceDiff (-2), TokenNewLine
+        TokenSpace 0, TokenDashListItem, TokenScalarInt 5, TokenNewLine,
+        TokenSpace 0, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
+        TokenSpace 0, TokenDashListItem, TokenNewLine,
+        TokenSpace 2, TokenScalarString "Lol  asd", TokenKeyColon, TokenScalarString "lol", TokenNewLine,
+        TokenSpace 2, TokenScalarString "List", TokenKeyColon, TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
+        TokenSpace 4, TokenScalarInt 9, TokenNewLine,
+        TokenSpace 4, TokenScalarNull, TokenNewLine
       ]
   ]
 

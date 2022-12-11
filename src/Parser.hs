@@ -22,6 +22,8 @@ import Control.Applicative
 -- - Eilutės maksimalus ilgis 16
 -- - Rakto maksimalus ilgis 10
 
+todo = error "TODO!"
+
 newtype Parser a = Parser
   { runParser :: [Token] -> Either String (a, [Token])
   }
@@ -95,7 +97,7 @@ overrideLeft (Parser p1) str =
 data Token =
       TokenInternalUnknown Char
     | TokenSpace Int
-    | TokenSpaceDiff Int
+    -- | TokenSpaceDiff Int
     | TokenInternalScalarUnknown String
     --  ^ Any scalar type yet to be parsed, including string
     | TokenScalarString String
@@ -140,8 +142,8 @@ isTokenScalar (TokenScalarString _) = True
 isTokenScalar TokenScalarNull       = True
 isTokenScalar _                     = False
 
-isTokenSpaceDiff (TokenSpaceDiff _) = True
-isTokenSpaceDiff _                  = False
+-- isTokenSpaceDiff (TokenSpaceDiff _) = True
+-- isTokenSpaceDiff _                  = False
 
 isTokenKeyColon TokenKeyColon  = True
 isTokenKeyColon _              = False
@@ -149,9 +151,9 @@ isTokenKeyColon _              = False
 isTokenDashListItem TokenDashListItem = True
 isTokenDashListItem _ = False
 
-removeTokenSpaceDiff :: [Token] -> [Token]
-removeTokenSpaceDiff ((TokenSpaceDiff _):ts) = ts
-removeTokenSpaceDiff ts = ts
+-- removeTokenSpaceDiff :: [Token] -> [Token]
+-- removeTokenSpaceDiff ((TokenSpaceDiff _):ts) = ts
+-- removeTokenSpaceDiff ts = ts
 
 removeTokenDashListItem :: [Token] -> [Token]
 removeTokenDashListItem (TokenDashListItem:ts) = ts
@@ -174,9 +176,9 @@ tokenizeYaml "" = []
 tokenizeYaml str = pipeline str
     where
         pipeline str' = (
-            normalizeDashListItem .
-            splitDiff .
-            diff .
+            -- normalizeDashListItem .
+            -- splitDiff .
+            -- diff .
             normalizeWhitespace .
             parseScalarToken .
             joinBetweenScalar .
@@ -220,19 +222,19 @@ tokenizeYaml str = pipeline str
         -- '-         '
         -- '  - value1'
         -- '  - value2'
-        normalizeDashListItem :: [Token] -> [Token]
-        normalizeDashListItem tkns = snd $ normalizeDashListItem' (tkns, [])
-            where
-                normalizeDashListItem' :: ([Token], [Token]) -> ([Token], [Token])
-                normalizeDashListItem' ([], ts') = ([], ts')
-                normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts, ts' ) = do
-                    let (bef, after) = break isTokenSpaceDiff ts
+        -- normalizeDashListItem :: [Token] -> [Token]
+        -- normalizeDashListItem tkns = snd $ normalizeDashListItem' (tkns, [])
+        --     where
+        --         normalizeDashListItem' :: ([Token], [Token]) -> ([Token], [Token])
+        --         normalizeDashListItem' ([], ts') = ([], ts')
+        --         normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts, ts' ) = do
+        --             let (bef, after) = break isTokenSpaceDiff ts
 
-                    normalizeDashListItem' (
-                            TokenDashListItem:(bef ++ removeTokenSpaceDiff after),
-                            ts' ++ [TokenDashListItem, TokenNewLine, TokenSpaceDiff 2]
-                        )
-                normalizeDashListItem' (tkn:ts, ts') = normalizeDashListItem' (ts, ts' ++ [tkn])
+        --             normalizeDashListItem' (
+        --                     TokenDashListItem:(bef ++ removeTokenSpaceDiff after),
+        --                     ts' ++ [TokenDashListItem, TokenNewLine, TokenSpaceDiff 2]
+        --                 )
+        --         normalizeDashListItem' (tkn:ts, ts') = normalizeDashListItem' (ts, ts' ++ [tkn])
 
                 -- normalizeDashListItem' :: ([Token], [Token]) -> ([Token], [Token])
                 -- normalizeDashListItem' ([], ts') = ([], ts')
@@ -297,48 +299,48 @@ tokenizeYaml str = pipeline str
                 normalizeWhitespace' (tkn:ts, ts') = normalizeWhitespace' (ts, ts' ++ [tkn])
 
         -- gets rid of `TokenSpace` and introduces `TokenSpaceDiff`
-        diff :: [Token] -> [Token]
-        diff ((TokenSpace s):tokens) = snd $ diff' (tokens, []) s
-            where
-                diff' :: ([Token], [Token]) -> Int -> ([Token], [Token])
-                diff' ([], ts) _ = ([], ts)
-                diff' (TokenNewLine:(TokenSpace s'):ts, ts') prev
-                    | s' == prev = diff' (ts, ts' ++ [TokenNewLine]) s'
-                    | otherwise = diff' (ts, ts' ++ [TokenNewLine, TokenSpaceDiff (s' - prev)]) s'
-                diff' (tkn:ts, ts') prev = diff' (ts, ts' ++ [tkn]) prev
-        diff (_:_) = undefined
-        diff [] = []
+        -- diff :: [Token] -> [Token]
+        -- diff ((TokenSpace s):tokens) = snd $ diff' (tokens, []) s
+        --     where
+        --         diff' :: ([Token], [Token]) -> Int -> ([Token], [Token])
+        --         diff' ([], ts) _ = ([], ts)
+        --         diff' (TokenNewLine:(TokenSpace s'):ts, ts') prev
+        --             | s' == prev = diff' (ts, ts' ++ [TokenNewLine]) s'
+        --             | otherwise = diff' (ts, ts' ++ [TokenNewLine, TokenSpaceDiff (s' - prev)]) s'
+        --         diff' (tkn:ts, ts') prev = diff' (ts, ts' ++ [tkn]) prev
+        -- diff (_:_) = undefined
+        -- diff [] = []
 
         -- this should fix testCase "Complex list"
         -- |-         |
         -- |  -       | <-  TokenSpaceDiff 2
         -- |    - foo | <-  TokenSpaceDiff 2
         -- |- bar       <-  splits this 'clif' (TokenSpaceDiff (-4)) into several `TokenSpaceDiff`s ([TokenSpaceDiff (-2), TokenSpaceDiff (-2)])
-        splitDiff :: [Token] -> [Token]
-        splitDiff tkns = do
-            let (emt, _, res) = splitDiff' tkns [] []
+        -- splitDiff :: [Token] -> [Token]
+        -- splitDiff tkns = do
+        --     let (emt, _, res) = splitDiff' tkns [] []
 
-            if not (null emt) then error "emt is not empt"
-            -- else if not ( null ind) then error "ind is not empty"
-            else res
+        --     if not (null emt) then error "emt is not empt"
+        --     -- else if not ( null ind) then error "ind is not empty"
+        --     else res
 
-            where
-                splitDiff' :: [Token] -> [Int] -> [Token] -> ([Token], [Int], [Token])
-                splitDiff' [] acc ts = ([], acc, ts)
-                splitDiff' ((TokenSpaceDiff ind):ts) acc ts'
-                    -- decline, compare with previous diffs and split it if needed
-                    | ind < 0 =
-                        case acc of
-                            [] -> undefined -- access without previous history should never happen
-                            (a:acc') ->
-                                -- assumptions: a > 0,  ind < 0
-                                -- equal decrese and increase
-                                if a + ind == 0 then splitDiff' ts acc' (ts' ++ [TokenSpaceDiff ind])
-                                -- decrese and increase don't match
-                                else splitDiff' (TokenSpaceDiff (a + ind):ts) acc' (ts' ++ [TokenSpaceDiff (a +ind)])
-                    -- incline, save to acc
-                    | ind > 0 = splitDiff' ts (ind:acc) (ts' ++ [TokenSpaceDiff ind])
-                splitDiff' (t:ts) acc ts' = splitDiff' ts acc (ts' ++ [t])
+        --     where
+        --         splitDiff' :: [Token] -> [Int] -> [Token] -> ([Token], [Int], [Token])
+        --         splitDiff' [] acc ts = ([], acc, ts)
+        --         splitDiff' ((TokenSpaceDiff ind):ts) acc ts'
+        --             -- decline, compare with previous diffs and split it if needed
+        --             | ind < 0 =
+        --                 case acc of
+        --                     [] -> undefined -- access without previous history should never happen
+        --                     (a:acc') ->
+        --                         -- assumptions: a > 0,  ind < 0
+        --                         -- equal decrese and increase
+        --                         if a + ind == 0 then splitDiff' ts acc' (ts' ++ [TokenSpaceDiff ind])
+        --                         -- decrese and increase don't match
+        --                         else splitDiff' (TokenSpaceDiff (a + ind):ts) acc' (ts' ++ [TokenSpaceDiff (a +ind)])
+        --             -- incline, save to acc
+        --             | ind > 0 = splitDiff' ts (ind:acc) (ts' ++ [TokenSpaceDiff ind])
+        --         splitDiff' (t:ts) acc ts' = splitDiff' ts acc (ts' ++ [t])
 
         joinBetweenScalar :: [Token] -> [Token]
         joinBetweenScalar tokens = snd $ joinBetweenScalar' (tokens, [])
@@ -460,69 +462,70 @@ tokenListP = traverse tokenP
 dumbCmp :: Token -> Token -> Bool
 dumbCmp (TokenScalarInt _) (TokenScalarInt _) = True
 dumbCmp (TokenScalarString _) (TokenScalarString _) = True
-dumbCmp (TokenSpaceDiff _) (TokenSpaceDiff _) = True
+dumbCmp (TokenSpace _) (TokenSpace _) = True
 dumbCmp t1 t2 = t1 == t2
 
 singleton :: a -> [a]
 singleton a = [a]
 
-parseJsonList =
-    tokenP TokenBeginBracketList *>
-    (
-        DList <$>
-            ((((:) <$> one)
-                <*>
-            many (sep *> one))
-                <|>
-            pure [])
-    )
-    <* tokenP TokenEndBracketList
-        where
-            -- sep :: Parser Document
-            sep :: Parser Token
-            sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
-            one :: Parser Document
-            one = wsnlOptional *> parseJsonMap' <|> parseJsonLike <* wsnlOptional
+-- parseJsonList =
+--     tokenP TokenBeginBracketList *>
+--     (
+--         DList <$>
+--             ((((:) <$> one)
+--                 <*>
+--             many (sep *> one))
+--                 <|>
+--             pure [])
+--     )
+--     <* tokenP TokenEndBracketList
+--         where
+--             -- sep :: Parser Document
+--             sep :: Parser Token
+--             sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
+--             one :: Parser Document
+--             one = wsnlOptional *> parseJsonMap' <|> parseJsonLike <* wsnlOptional
 
--- parseJsonMap = DMap <$> (some parseKeyValueJson <|> pure [])
-parseJsonMap' =
-    wsnlOptional *>
-    (
-        DMap <$> some parseKeyValueJson
-    )
-    <* wsnlOptional
+-- -- parseJsonMap = DMap <$> (some parseKeyValueJson <|> pure [])
+-- parseJsonMap' =
+--     wsnlOptional *>
+--     (
+--         DMap <$> some parseKeyValueJson
+--     )
+--     <* wsnlOptional
 
-parseJsonMap =
-    tokenP TokenBeginMapping *>
-    wsnlOptional *>
-    (
-        DMap <$>
-            ((((:) <$> one)
-                <*>
-            many (sep *> one))
-                <|>
-            pure [])
-    )
-    <* wsnlOptional
-    <* tokenP TokenEndMapping
-    where
-        sep :: Parser Token
-        sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
-        one :: Parser (String, Document)
-        one = wsnlOptional *> parseKeyValueJson <* wsnlOptional
+-- parseJsonMap =
+--     tokenP TokenBeginMapping *>
+--     wsnlOptional *>
+--     (
+--         DMap <$>
+--             ((((:) <$> one)
+--                 <*>
+--             many (sep *> one))
+--                 <|>
+--             pure [])
+--     )
+--     <* wsnlOptional
+--     <* tokenP TokenEndMapping
+--     where
+--         sep :: Parser Token
+--         sep = wsnlOptional *> tokenP TokenCollectionSep <* wsOptional
+--         one :: Parser (String, Document)
+--         one = wsnlOptional *> parseKeyValueJson <* wsnlOptional
 
 parseNull :: Parser Document
-parseNull = sdOptional *> (const DNull <$> tokenP TokenScalarNull)
+parseNull = wsOptional *> (DNull <$ tokenP TokenScalarNull)
 
 parseNumber :: Parser Document
-parseNumber = sdOptional *> (func <$> tokenP (TokenScalarInt 0))
+parseNumber = wsOptional *> (func <$> tokenP (TokenScalarInt 0))
     where
         func :: Token -> Document
         func (TokenScalarInt int) = DInteger int
         func _ = undefined -- <- should not happen
 
 parseString :: Parser Document
-parseString = nlOptional *> sdOptional *> wsOptional *> (func <$> tokenP (TokenScalarString ""))    where
+parseString = wsOptional *> (func <$> tokenP (TokenScalarString ""))
+    where
         func :: Token -> Document
         func (TokenScalarString str) = DString str
         func _ = undefined -- <- should not happen
@@ -541,148 +544,163 @@ nlOptional = spanP isTokenNewLine
 wsOptional :: Parser [Token]
 wsOptional = spanP isTokenSpace
 
-wsnlOptional :: Parser [Token]
-wsnlOptional = spanP (\t -> isTokenSpace t || isTokenNewLine t)
+-- wsnlOptional :: Parser [Token]
+-- wsnlOptional = spanP (\t -> isTokenSpace t || isTokenNewLine t)
 
 -- wsnlsdOptional :: Parser [Token]
 -- wsnlsdOptional = (spanP (\t -> isTokenSpace t || isTokenNewLine t)) *> tokenPOptional TokenSpaceDiff 0
 
-sdOptional :: Parser Token
-sdOptional = tokenPOptional (TokenSpaceDiff 0)
+-- sdOptional :: Parser Token
+-- sdOptional = tokenPOptional (TokenSpaceDiff 0)
 
-sdStrict :: Parser Token
--- sdStrict = overrideLeft (tokenP (TokenSpaceDiff 0)) "TokenSpaceDiff expected, but ERR_02A or ERR_01 happened"
-sdStrict = tokenP (TokenSpaceDiff 0)
+-- sdStrict :: Parser Token
+-- -- sdStrict = overrideLeft (tokenP (TokenSpaceDiff 0)) "TokenSpaceDiff expected, but ERR_02A or ERR_01 happened"
+-- sdStrict = tokenP (TokenSpaceDiff 0)
 
 nlStrict :: Parser Token
 nlStrict = tokenP TokenNewLine
 
+unsafeGetTokenSpace :: Token -> Int 
+unsafeGetTokenSpace (TokenSpace i) = i
+unsafeGetTokenSpace _ = undefined
+
+parseTokenSpace :: [Token] -> Either String (Token, [Token])
+parseTokenSpace ts = expectToken (TokenSpace 10) ts
+
+expectToken :: Token -> [Token] -> Either String (Token, [Token])
+expectToken ch [] = Left $ "Empty input: '" ++ show ch ++ " expected"
+expectToken t (t':ts) | t `dumbCmp` t' = Right (t', ts)
+                      | otherwise = Left $ show t ++ " expected, got: " ++ show (t':ts)
+
 parseList :: Parser Document
--- parseList = DList <$> (sdOptional *> some one)
-parseList = DList <$> (
-        --     (((:) <$> first') <*> some one)
-        -- <|> (((:) <$> first') <*> pure [])
-            -- (((:) <$> first) <*> some one) 
-            -- (DMap <$> (_a)) <|>
-            -- some (wrapper <|> one'')
-            some (one'')
-        -- <|> (((:) <$> first) <*> some one)
-        -- <|> (((:) <$> first) <*> pure [])
-        )
+parseList = Parser $ \input -> do
+    (docs, ts) <- runParser parseList' input
+    return (DList docs, ts)
+
+parseList' :: Parser [Document]
+parseList' = Parser $ \input -> do
+    ((ind, doc), ts) <- runParser (first <* nlOptional) input
+    (docs, ts') <- runParser (many (latter ind <* nlOptional)) ts
+
+    Right (doc:docs, ts')
+
     where
-        -- first' :: Parser Document
-        -- first' = 
-        --     tokenP TokenDashListItem *> wsOptional *>
-        --     parseYaml
-        --     <* wsnlOptional <* sdStrict
-        -- first :: Parser Document
-        -- first =
-        --     tokenP TokenDashListItem *> wsOptional *> nlStrict *> sdStrict *>
-        --     parseYaml
-        --     <* wsnlOptional
-        one'' :: Parser Document
-        one'' =
-            tokenP TokenDashListItem *> wsnlOptional *>
-            parseYaml
-            -- parseE
-            <* wsnlOptional
+        first :: Parser (Int, Document)
+        first = Parser $ \input -> do
+            (ind, ts) <- parseTokenSpace input
+            let ind' = unsafeGetTokenSpace ind
+            (_, ts') <- runParser ((tokenP TokenDashListItem) <* wsOptional <*  nlOptional) ts
+            (doc, ts'') <- runParser parseYaml ts'
+            return ((ind', doc), ts'')
 
-        -- wrapper :: Parser Document
-        -- -- wrapper = DMap <$>
-        -- --     (((:) <$> one <* sdStrict) <*> ( (some one) <* sdStrict))
-        -- wrapper = DMap <$> (((:) <$> (tokenP TokenDashListItem *> one)) <*> (sdStrict *> (some one) <* sdStrict))
+        -- one :: Parser Document
+        -- one = wsOptional *> tokenP TokenDashListItem *> parseScalar <* wsnlOptional
+        latter :: Int -> Parser Document
+        latter ind = Parser $ \input -> do
+            (ind', ts) <- parseTokenSpace input
+            let ind'' = unsafeGetTokenSpace ind'
+            (_, ts') <- runParser ((tokenP TokenDashListItem) <* wsOptional <* nlOptional) ts
+            (doc, ts'') <- runParser parseYaml ts'
+            -- (ind, ) <- runParser tokenP TokenDashListItem
 
-        -- -- fstMap :: Parser (String, Document)
-        -- -- fstMap = one <* sdStrict
+            if ind /= ind'' then
+                Left "Mismacthed indentation" else
+                -- error $ "input: " ++ show input
+                Right (doc, ts'')
 
-        -- middleMap :: Parser [(String, Document)]
-        -- middleMap = some one
 
-        -- endMap :: Parser (String, Document)
-        -- endMap = sdStrict
+
+
+-- parseList = DList <$> some one''
+--     where
+--         one'' :: Parser Document
+--         one'' =
+--             tokenP TokenDashListItem *> wsnlOptional *>
+--             parseYaml
+--             <* wsnlOptional
 
 parseE :: Parser a
 parseE = Parser $ \input ->
     error $ show input
 
-parseIndented :: Parser Document
-parseIndented =
-    wsnlOptional *> sdStrict *>
-    parseYaml
-    <* wsnlOptional
-    -- <* sdStrict
-    <* sdStrict
+-- parseIndented :: Parser Document
+-- parseIndented =
+--     wsnlOptional *> sdStrict *>
+--     parseYaml
+--     <* wsnlOptional
+--     -- <* sdStrict
+--     <* sdStrict
     -- <* overrideLeft
     --     sdStrict
     --     "In `parseIndented` `TokenSpaceDiff` was expected, got ERR_02A or ERR_01 instead"
 
 
 -- NOTE: `<*` has higher priority than `<|>`
-parseMap :: Parser Document
--- parseMap = DMap <$> ((((:) <$> first) <*> many one) <|> many last')
-parseMap = DMap <$> (
+-- parseMap :: Parser Document
+-- -- parseMap = DMap <$> ((((:) <$> first) <*> many one) <|> many last')
+-- parseMap = DMap <$> (
 
-        -- 👇 problematic misparses testCase "List (nl between `-` and map) with a nested map"
-        -- ((((:) <$> one') <*> many (last' <|> one' <|> one))) <|>
+--         -- 👇 problematic misparses testCase "List (nl between `-` and map) with a nested map"
+--         -- ((((:) <$> one') <*> many (last' <|> one' <|> one))) <|>
 
-        -- ((((:) <$> one') <*> many (one))) <|>
-        -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
-        -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
+--         -- ((((:) <$> one') <*> many (one))) <|>
+--         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
+--         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
 
-        -- (((:) <$> first') <*> (many (last'' <|> one)))
+--         -- (((:) <$> first') <*> (many (last'' <|> one)))
 
 
-        -- map on list branch, i.e.: [DOESN'T WORK]  
-        -- normal branch, i.e.:
-        -- ' - key: stuuf '
-        -- '   keyy:      '
-        -- '     stuff    '
-        -- '   key: asd   '
-        (((:) <$> kvp <* sdStrict) <*> ((some kvp) <* sdStrict)) <|>
-        -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
-        -- ((((:) <$> one) <*> many (one))) <|>
+--         -- map on list branch, i.e.: [DOESN'T WORK]  
+--         -- normal branch, i.e.:
+--         -- ' - key: stuuf '
+--         -- '   keyy:      '
+--         -- '     stuff    '
+--         -- '   key: asd   '
+--         (((:) <$> kvp <* sdStrict) <*> ((some kvp) <* sdStrict)) <|>
+--         -- (((:) <$> first') <*> (many (last'' <|> one))) <|>
+--         -- ((((:) <$> one) <*> many (one))) <|>
 
-        -- normal branch, i.e.:
-        -- ' -            '
-        -- '   key: stuuf '
-        -- '   keyy:      '
-        -- '       stuff  '
-        -- '   key: asd   '
-        some kvp
+--         -- normal branch, i.e.:
+--         -- ' -            '
+--         -- '   key: stuuf '
+--         -- '   keyy:      '
+--         -- '       stuff  '
+--         -- '   key: asd   '
+--         some kvp
 
-        -- (((:) <$> one) <*> many (last' <|> one)) <|>
-    )
-kvp = (parseKeyValue <|> parseKeyValueOnNL) <* wsnlOptional
+--         -- (((:) <$> one) <*> many (last' <|> one)) <|>
+--     )
+-- kvp = parseKeyValue
 -- kvp = parseKeyValue <* wsOptional <* nlStrict -- <- doesn't work because other parsers might consume nl
 
-parseKeyValueOnNL :: Parser (String, Document)
-parseKeyValueOnNL =
-      (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsnlOptional <* sdStrict) <*>
-    --   parseYaml
-    --   parseYaml <* sdOptional
-      parseYaml <* sdStrict
+-- parseKeyValueOnNL :: Parser (String, Document)
+-- parseKeyValueOnNL =
+--       (\key _ value -> (key, value)) <$> getStringified <*>
+--       ( tokenP TokenKeyColon <* wsnlOptional <* sdStrict) <*>
+--     --   parseYaml
+--     --   parseYaml <* sdOptional
+--       parseYaml <* sdStrict
 
-parseKeyValue :: Parser (String, Document)
-parseKeyValue =
-      (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsnlOptional) <*>
-      parseYaml
+-- parseKeyValue :: Parser (String, Document)
+-- parseKeyValue =
+--       (\key _ value -> (key, value)) <$> getStringified <*>
+--       ( tokenP TokenKeyColon <* wsnlOptional) <*>
+--       parseYaml
 
 
-parseKeyValueJson :: Parser (String, Document)
-parseKeyValueJson =
-      (\key _ value -> (key, value)) <$> getStringified <*>
-      ( tokenP TokenKeyColon <* wsnlOptional) <*>
-      parseJsonLike <* wsnlOptional
+-- parseKeyValueJson :: Parser (String, Document)
+-- parseKeyValueJson =
+--       (\key _ value -> (key, value)) <$> getStringified <*>
+--       ( tokenP TokenKeyColon <* wsnlOptional) <*>
+--       parseJsonLike <* wsnlOptional
 
-getStringified :: Parser String
-getStringified = toYamlStr <$> scalarTokenP
+-- getStringified :: Parser String
+-- getStringified = toYamlStr <$> scalarTokenP
 
 -- -- -- the glue -- -- --
-parseYaml = parseMap <|> parseIndented <|> parseList <|> parseJsonLike
+parseYaml = parseList <|> parseScalar
 
 -- `parseIndented` is "pushed" as much as possible into the parser chains
 -- without breaking stuff 
-parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
+-- parseJsonLike = parseJsonMap <|> parseJsonList <|> parseScalar
 parseScalar =  parseNull <|> parseNumber <|> parseString

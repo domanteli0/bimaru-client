@@ -13,10 +13,11 @@ import Data.String.Conversions (cs)
 test0 :: String
 test0 =
     unlines [
-        "1:",
-        "    'str':",
-        "      - fml",
-        "      - end mi"
+        "-",
+        "   -",
+        "      -",
+        "         lll",
+        "   - ll"
     ]
 -- test0 :: String
 -- test0 =
@@ -30,18 +31,27 @@ test0 =
 
 test1 :: String
 test1 = unlines [
-        "key1: value1",
-        "key2: value2",
-        "key3: value3"
+        "- asd",
+        "-",
+        "  - lol",
+        "- nice",
+        "- null"
     ]
+    -- unlines [
+    --       "- asd",
+    --       "-",
+    --       "  - lol",
+    --       "- nice",
+    --       "- null"
+    --     ]
 
 test2 :: String
 test2 = unlines [
-        "key:",
-        "  key:",
-        "    - fml",
-        "    - end me",
-        "key1: studd"
+        "-",
+        "   -",
+        "      -",
+        "         lll",
+        "- ll"
     ]
 
 test3 :: String
@@ -52,7 +62,7 @@ test3 = unlines [
         "      - end me",
         "  key1: studd"
         -- , "- a"
-        -- , "- 666"
+        , "- 666"
     ]
 
 test4 = unlines [

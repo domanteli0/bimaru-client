@@ -179,78 +179,24 @@ tokenizeYaml str = pipeline str
             -- normalizeDashListItem .
             -- splitDiff .
             -- diff .
+            normalizeDashListItem .
+            filter' .
             normalizeWhitespace .
             parseScalarToken .
             joinBetweenScalar .
             joinUnknown .
             tokenizeYaml' .
             ensureNL
-            ) (str' ++ "\n")
-        -- pipeline str' = (normalizeDashListItem . splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n")
-        -- pipeline str' = (normalizeDashListItem . splitDiff . diff . normalizeWhitespace . parseScalarToken . joinBetweenScalar . joinUnknown . tokenizeYaml' . ensureNL) (str' ++ "\n")
+            ) str'
 
-        -- This changes lines like these:
-        -- '- stuff:<...>'
-        -- '  fml:<...>'
-        --   into
-        -- '-         '
-        -- '  stuff'
-        -- '  fml'
-        -- normalizeDashListMap :: [Token] -> [Token]
-        -- normalizeDashListMap tkns = snd $ normalizeDashListMap' (tkns, [])
-        --     where
-        --         normalizeDashListMap' :: ([Token], [Token]) -> ([Token], [Token])
-        --         normalizeDashListMap' ([], ts') = ([], ts')
-        --         normalizeDashListMap' (TokenDashListItem:TokenNewLine:ts, ts' ) =
-        --             normalizeDashListMap' (ts, ts' ++ [TokenDashListItem, TokenNewLine])
-        --         normalizeDashListMap' (TokenDashListItem:ts, ts' ) = do
-        --             let (bef, after) = break isTokenDashListItem ts
+        filter' :: [Token] -> [Token]
+        filter' tkns = snd $ filter'' tkns []
+            where
+                filter'' :: [Token] -> [Token] -> ([Token], [Token])
+                filter'' [] ts = ([], ts)
+                filter'' (TokenDashListItem:(TokenSpace _):TokenNewLine:ts) ts' = filter'' ts (ts' ++ [TokenDashListItem, TokenNewLine])
+                filter'' (t:ts) ts' = filter'' ts (ts' ++ [t])
 
-        --             normalizeDashListMap' (
-        --                     bef ++ [TokenSpaceDiff (-2)] ++ after,
-        --                     ts' ++ [TokenDashListItem, TokenNewLine, TokenSpaceDiff 2]
-        --                 )
-        --         normalizeDashListMap' (tkn:ts, ts') = normalizeDashListMap' (ts, ts' ++ [tkn])
-
-        -- Currently, this doesn't handle cases when there is a `TokenSpace` between `TokenDashListItem`s
-        -- multiline json like lists and mappings are also unsupported
-        -- 
-        -- This changes lines like these:
-        -- '- - value1'
-        -- '  - value2'
-        --   into
-        -- '-         '
-        -- '  - value1'
-        -- '  - value2'
-        -- normalizeDashListItem :: [Token] -> [Token]
-        -- normalizeDashListItem tkns = snd $ normalizeDashListItem' (tkns, [])
-        --     where
-        --         normalizeDashListItem' :: ([Token], [Token]) -> ([Token], [Token])
-        --         normalizeDashListItem' ([], ts') = ([], ts')
-        --         normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts, ts' ) = do
-        --             let (bef, after) = break isTokenSpaceDiff ts
-
-        --             normalizeDashListItem' (
-        --                     TokenDashListItem:(bef ++ removeTokenSpaceDiff after),
-        --                     ts' ++ [TokenDashListItem, TokenNewLine, TokenSpaceDiff 2]
-        --                 )
-        --         normalizeDashListItem' (tkn:ts, ts') = normalizeDashListItem' (ts, ts' ++ [tkn])
-
-                -- normalizeDashListItem' :: ([Token], [Token]) -> ([Token], [Token])
-                -- normalizeDashListItem' ([], ts') = ([], ts')
-                -- normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts, ts' ) = do
-                --     let (bef, diff:after) = break isTokenSpaceDiff ts
-                --     -- (bef ++ [a], after)
-                --     -- let (inside_bef, diff'inside_after) = 
-                --     --         normalizeDashListItem' (inside_bef ++ [diff], [])
-                --         -- normalizeDashListItem' (TokenDashListItem:bef ++ [a], after ++ [TokenDashListItem, TokenSpaceDiff 2])
-                --     -- (TokenDashListItem:ts, ts' ++ [TokenSpaceDiff 2, inside, after])
-
-                --     normalizeDashListItem' (
-                --             TokenDashListItem:bef  ++ after ++ [diff] ++ [TokenDashListItem, TokenSpaceDiff 2], 
-                --             ts'
-                --         )
-                -- normalizeDashListItem' (tkn:ts, ts') = normalizeDashListItem' (ts, ts' ++ [tkn])
 
         tokenizeYaml' :: String -> [Token]
         tokenizeYaml' "" = []
@@ -282,6 +228,24 @@ tokenizeYaml str = pipeline str
                 -- `unknownChars` is ensured to be a list of only TokenUnknown
                 -- thus `getUnknown` is called only to unpack the char inside TokenUnknown
 
+
+        -- matches cases with nested lists on the same line, such as:
+        -- '- - 5'
+        -- '  - 6'
+        -- '- 7  '
+        normalizeDashListItem :: [Token] -> [Token]
+        normalizeDashListItem tkns = snd $ normalizeDashListItem' tkns [] 0
+            where
+                normalizeDashListItem' :: [Token] -> [Token] -> Int -> ([Token], [Token])
+                normalizeDashListItem' [] ts _ = ([], ts)
+
+                normalizeDashListItem' (TokenDashListItem:TokenDashListItem:ts) ts' acc = 
+                    normalizeDashListItem' (TokenDashListItem:ts) (ts' ++ [TokenDashListItem, TokenNewLine, TokenSpace (acc + 2)]) (acc + 2)
+
+                normalizeDashListItem' ((TokenSpace i):ts) ts' _ = normalizeDashListItem' ts (ts' ++ [TokenSpace i]) i
+                normalizeDashListItem' (t:ts) ts' acc = normalizeDashListItem' ts (ts' ++ [t]) acc
+
+        -- adds `TokenSpace 0` at the start of line, where there are none, i think...
         normalizeWhitespace :: [Token] -> [Token]
         normalizeWhitespace tokens = snd $ normalizeWhitespace'' tokens
             where
@@ -297,50 +261,6 @@ tokenizeYaml str = pipeline str
                     | isTokenSpace tkn = normalizeWhitespace' (tkn:ts, ts' ++ [TokenNewLine])
                     | otherwise = normalizeWhitespace' (tkn:ts,ts' ++ [TokenNewLine, TokenSpace 0])
                 normalizeWhitespace' (tkn:ts, ts') = normalizeWhitespace' (ts, ts' ++ [tkn])
-
-        -- gets rid of `TokenSpace` and introduces `TokenSpaceDiff`
-        -- diff :: [Token] -> [Token]
-        -- diff ((TokenSpace s):tokens) = snd $ diff' (tokens, []) s
-        --     where
-        --         diff' :: ([Token], [Token]) -> Int -> ([Token], [Token])
-        --         diff' ([], ts) _ = ([], ts)
-        --         diff' (TokenNewLine:(TokenSpace s'):ts, ts') prev
-        --             | s' == prev = diff' (ts, ts' ++ [TokenNewLine]) s'
-        --             | otherwise = diff' (ts, ts' ++ [TokenNewLine, TokenSpaceDiff (s' - prev)]) s'
-        --         diff' (tkn:ts, ts') prev = diff' (ts, ts' ++ [tkn]) prev
-        -- diff (_:_) = undefined
-        -- diff [] = []
-
-        -- this should fix testCase "Complex list"
-        -- |-         |
-        -- |  -       | <-  TokenSpaceDiff 2
-        -- |    - foo | <-  TokenSpaceDiff 2
-        -- |- bar       <-  splits this 'clif' (TokenSpaceDiff (-4)) into several `TokenSpaceDiff`s ([TokenSpaceDiff (-2), TokenSpaceDiff (-2)])
-        -- splitDiff :: [Token] -> [Token]
-        -- splitDiff tkns = do
-        --     let (emt, _, res) = splitDiff' tkns [] []
-
-        --     if not (null emt) then error "emt is not empt"
-        --     -- else if not ( null ind) then error "ind is not empty"
-        --     else res
-
-        --     where
-        --         splitDiff' :: [Token] -> [Int] -> [Token] -> ([Token], [Int], [Token])
-        --         splitDiff' [] acc ts = ([], acc, ts)
-        --         splitDiff' ((TokenSpaceDiff ind):ts) acc ts'
-        --             -- decline, compare with previous diffs and split it if needed
-        --             | ind < 0 =
-        --                 case acc of
-        --                     [] -> undefined -- access without previous history should never happen
-        --                     (a:acc') ->
-        --                         -- assumptions: a > 0,  ind < 0
-        --                         -- equal decrese and increase
-        --                         if a + ind == 0 then splitDiff' ts acc' (ts' ++ [TokenSpaceDiff ind])
-        --                         -- decrese and increase don't match
-        --                         else splitDiff' (TokenSpaceDiff (a + ind):ts) acc' (ts' ++ [TokenSpaceDiff (a +ind)])
-        --             -- incline, save to acc
-        --             | ind > 0 = splitDiff' ts (ind:acc) (ts' ++ [TokenSpaceDiff ind])
-        --         splitDiff' (t:ts) acc ts' = splitDiff' ts acc (ts' ++ [t])
 
         joinBetweenScalar :: [Token] -> [Token]
         joinBetweenScalar tokens = snd $ joinBetweenScalar' (tokens, [])
@@ -560,7 +480,7 @@ wsOptional = spanP isTokenSpace
 nlStrict :: Parser Token
 nlStrict = tokenP TokenNewLine
 
-unsafeGetTokenSpace :: Token -> Int 
+unsafeGetTokenSpace :: Token -> Int
 unsafeGetTokenSpace (TokenSpace i) = i
 unsafeGetTokenSpace _ = undefined
 
@@ -589,9 +509,18 @@ parseList' = Parser $ \input -> do
         first = Parser $ \input -> do
             (ind, ts) <- parseTokenSpace input
             let ind' = unsafeGetTokenSpace ind
-            (_, ts') <- runParser ((tokenP TokenDashListItem) <* wsOptional <*  nlOptional) ts
-            (doc, ts'') <- runParser parseYaml ts'
-            return ((ind', doc), ts'')
+
+
+            (_, ts') <- runParser (tokenP TokenDashListItem) ts
+            case runParser (tokenP TokenDashListItem) ts' of
+                Left _ -> do
+                    (_, ts'') <- runParser (wsOptional <*  nlOptional) ts'
+                    (doc, ts''') <- runParser parseYaml ts''
+                    return ((ind', doc), ts''')
+                Right (_, _) -> Left "same line is unsuported"
+                    -- (_, ts''') <- runParser (wsOptional <*  nlOptional) ts''
+                    -- (doc, ts'''') <- runParser (latter (ind' + 2)) ts'''
+                    -- return ((ind' + 2, doc), ts'''')
 
         -- one :: Parser Document
         -- one = wsOptional *> tokenP TokenDashListItem *> parseScalar <* wsnlOptional
@@ -707,7 +636,7 @@ parseE = Parser $ \input ->
 -- parseKeyValueOnNL :: Parser (String, Document)
 -- parseKeyValueOnNL =
 --       (\key _ value -> (key, value)) <$> getStringified <*>
---       ( tokenP TokenKeyColon <* wsnlOptional <* sdStrict) <*>
+--       ( tokenP TokenKeyColon <* wsOptional <* nlOptional) <*>
 --     --   parseYaml
 --     --   parseYaml <* sdOptional
 --       parseYaml <* sdStrict

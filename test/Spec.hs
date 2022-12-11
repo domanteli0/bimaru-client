@@ -94,15 +94,16 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
         "    - 6",
         "    - 9",
         "    - null"
-      ]) @?= [TokenScalarString "List", TokenKeyColon, TokenNewLine,
+      ]) @?= [
+        TokenSpace 0, TokenScalarString "List", TokenKeyColon, TokenNewLine,
         TokenSpace 0, TokenDashListItem, TokenScalarInt 5, TokenNewLine,
         TokenSpace 0, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
         TokenSpace 0, TokenDashListItem, TokenNewLine,
         TokenSpace 2, TokenScalarString "Lol  asd", TokenKeyColon, TokenScalarString "lol", TokenNewLine,
         TokenSpace 2, TokenScalarString "List", TokenKeyColon, TokenNewLine,
         TokenSpace 4, TokenDashListItem, TokenScalarInt 6, TokenNewLine,
-        TokenSpace 4, TokenScalarInt 9, TokenNewLine,
-        TokenSpace 4, TokenScalarNull, TokenNewLine
+        TokenSpace 4, TokenDashListItem, TokenScalarInt 9, TokenNewLine,
+        TokenSpace 4, TokenDashListItem, TokenScalarNull, TokenNewLine
       ]
   ]
 

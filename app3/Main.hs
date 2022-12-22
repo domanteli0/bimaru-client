@@ -14,13 +14,14 @@ import Data.List.Split as S ( splitOn )
 import Data.Char (isSpace)
 import Lib1 ( emptyState, mkCheck, render, toggle, State )
 import Lib2 ( renderDocument )
-import Lib3 ( parseDocument, hint, gameStart, Hint, GameStart)
+import Lib3 ( parseDocument, gameStart, GameStart)
 import Types(Check, toDocument, fromDocument)
 import Network.Wreq
     ( post, postWith, defaults, header, responseBody )
 import qualified Network.Wreq as Wreq
 
 import Control.Lens
+import System.Exit (exitSuccess, exitFailure)
 import System.Console.Repline
   ( CompleterStyle (Word),
     ExitDecision (Exit),
@@ -29,7 +30,6 @@ import System.Console.Repline
     evalRepl,
   )
 import System.Environment (getArgs)
-import System.Exit (exitFailure)
 import System.IO (stderr)
 
 import Data.String.Conversions
@@ -39,31 +39,25 @@ type Repl a = HaskelineT (StateT (String, Lib1.State) IO) a
 commandShow :: String
 commandShow = "show"
 
-commandHint :: String
-commandHint = "hint"
-
 commandCheck :: String
 commandCheck = "check"
 
 commandToggle :: String
 commandToggle = "toggle"
 
+commandExit :: String
+commandExit = "exit"
+
 -- Evaluation : handle each line user inputs
 cmd :: String -> Repl ()
 cmd c
   | trim c == commandShow = lift get >>= liftIO . Prelude.putStrLn . Lib1.render . snd
   | trim c == commandCheck = lift get >>= check . (Lib1.mkCheck . snd) >>= liftIO . Prelude.putStrLn
+  | trim c == commandExit = exit "Exited the game."
   | commandToggle `L.isPrefixOf` trim c = do
     case tokens c of
       [_] -> liftIO $ Prelude.putStrLn $ "Illegal format, \"" ++ commandToggle ++ " expects at leas one argument"
       t -> lift $ modify (\(u, s) -> (u, Lib1.toggle s (L.drop 1 t)))
-  | commandHint `L.isPrefixOf` trim c =
-    case tokens c of
-      [_, str] ->
-        case reads str of
-          [(n, "")] -> hints n
-          _ -> liftIO $ Prelude.putStrLn $ "Illegal " ++ commandHint ++ " argument: " ++ str
-      _ -> liftIO $ Prelude.putStrLn $ "Illegal format, \"" ++ commandHint ++ " $number_of_hints\" expected, e.g \"" ++ commandHint ++ " 1\""
 cmd c = liftIO $ Prelude.putStrLn $ "Unknown command: " ++ c
 
 tokens :: String -> [String]
@@ -81,19 +75,15 @@ check c = do
   resp <- liftIO $ postWith opts (url ++ "/check") body
   pure $ cs $ resp ^. responseBody
 
-hints :: Int -> Repl ()
-hints n = do
-  (url, s) <- lift get
-  r <- liftIO $ Wreq.get (url ++ "/hint?limit=" ++ show n)
-  let h = Lib3.parseDocument (cs (r ^. responseBody)) >>= fromDocument
-  case (h :: Either String Lib3.Hint) of
-    Left msg -> liftIO $ fatal $ cs msg
-    Right d -> lift $ put (url, Lib3.hint s d)
+exit :: Text -> Repl ()
+exit msg = do
+    liftIO $ TIO.putStrLn msg
+    liftIO exitSuccess
 
 -- Tab Completion: return a completion for partial words entered
 completer :: Monad m => WordCompleter m
 completer n = do
-  let names = [commandShow, commandHint, commandCheck, commandToggle]
+  let names = [commandShow, commandCheck, commandToggle]
   return $ Prelude.filter (L.isPrefixOf n) names
 
 ini :: Repl ()
@@ -105,7 +95,7 @@ ini = do
     Left msg -> liftIO $ fatal $ cs msg
     Right d -> do
       lift $ put (url, Lib3.gameStart s d)
-      liftIO $ TIO.putStrLn "Welcome to Bimaru v3. Press [TAB] for available commands list"
+      liftIO $ TIO.putStrLn "Welcome to Bimaru v4. Press [TAB] for available commands list"
 
 fatal :: Text -> IO ()
 fatal msg = do
@@ -124,9 +114,10 @@ main = do
     [token] -> run $ T.pack token
     _ -> fatal "token not provided, expected at least one command argument"
 
+--If you want to start new session, first command line arg must be "new"
 run :: T.Text -> IO ()
-run token = do
-  -- Dear students, it is not against you, it is against silly source code crawlers on the Internet
-  let url = E.fromRight (error "Cannot decode url") $ decodeBase64 $ T.drop 6 "f6675cYmltYXJ1LmhvbWVkaXIuZXU="
+run token = if token == "new" then TIO.putStrLn "New game is happening" else
+  do
+  let url = "127.0.0.1:8008"
   let fullUrl = T.unpack (T.concat ["http://", url, "/game/", token])
   evalStateT (evalRepl (const $ pure ">>> ") cmd [] Nothing Nothing (Word completer) ini final) (fullUrl, Lib1.emptyState)

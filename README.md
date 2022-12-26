@@ -11,9 +11,16 @@ Steps:
     - Recommended version of HLS
 4. (Optional) Install VSCode with Haskell plugin
 5. Run `stack build` to see if everything works
-6. Run `stack run -- $YOUR_TOKEN` play a game
+6. Run server `stack run bimaru-server` 
+7. Run `stack run bimaru-client -- $YOUR_TOKEN` play a game
+
 
 Some other notes:
+- The game doesn't support hints anymore
 - On Windows you might need to install "Msys2"
 - On Linux you might need to install "libtinfo-dev" and "zlib1g-dev"
 - On Linux you might need to use `stack` with version suffix, e.g. `stack-2.7.5`. 
+
+Hard-coded solution:
+
+https://en.wikipedia.org/wiki/Battleship_(puzzle)#/media/File:Solved_Solitaire_Battleships.svg

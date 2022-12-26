@@ -18,23 +18,18 @@ import Data.String.Conversions
 import Test.QuickCheck.Arbitrary
 import Test.QuickCheck.Gen as Gen
 
--- Data structure used to post ship allocations
--- to game server (for check). Do not modify.
 newtype Check = Check {
     coords :: [Coord]
 } deriving (Generic, Show, Eq)
 instance ToJSON Check
 
--- Data structure used to post ship allocations
--- to game server (for check). Do not modify.
 data Coord = Coord {
     col :: Int,
     row :: Int
 } deriving (Generic, Show, Eq)
 instance ToJSON Coord
 
--- Document represents a document which is used to
--- communicate with a game server
+
 data Document =
     DMap [(String, Document)]
     | DList [Document]

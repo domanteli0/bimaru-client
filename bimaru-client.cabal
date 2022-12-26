@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.0.
+-- This file has been generated from package.yaml by hpack version 0.34.4.
 --
 -- see: https://github.com/sol/hpack
 
@@ -25,10 +25,9 @@ source-repository head
 
 library
   exposed-modules:
-      Lib1
-      Lib2
-      Lib3
+      Bimaru
       Parser
+      Session
       Testing
       Types
   other-modules:
@@ -42,26 +41,31 @@ library
     , base >=4.7 && <5
     , base64
     , bytestring
+    , crypto-api
+    , http-client
     , lens
     , process
     , repline
     , scientific
+    , scotty
     , split
+    , stm
     , string-conversions
     , text
     , transformers
     , unordered-containers
     , vector
+    , wai
     , wreq
     , yaml
   default-language: Haskell2010
 
-executable bimaru-client-1
+executable bimaru-client
   main-is: Main.hs
   other-modules:
       Paths_bimaru_client
   hs-source-dirs:
-      app1
+      bimaru-client
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck
@@ -70,26 +74,31 @@ executable bimaru-client-1
     , base64
     , bimaru-client
     , bytestring
+    , crypto-api
+    , http-client
     , lens
     , process
     , repline
     , scientific
+    , scotty
     , split
+    , stm
     , string-conversions
     , text
     , transformers
     , unordered-containers
     , vector
+    , wai
     , wreq
     , yaml
   default-language: Haskell2010
 
-executable bimaru-client-2
+executable bimaru-server
   main-is: Main.hs
   other-modules:
       Paths_bimaru_client
   hs-source-dirs:
-      app2
+      bimaru-server
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck
@@ -98,44 +107,21 @@ executable bimaru-client-2
     , base64
     , bimaru-client
     , bytestring
+    , crypto-api
+    , http-client
     , lens
     , process
     , repline
     , scientific
+    , scotty
     , split
+    , stm
     , string-conversions
     , text
     , transformers
     , unordered-containers
     , vector
-    , wreq
-    , yaml
-  default-language: Haskell2010
-
-executable bimaru-client-3
-  main-is: Main.hs
-  other-modules:
-      Paths_bimaru_client
-  hs-source-dirs:
-      app3
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      QuickCheck
-    , aeson
-    , base >=4.7 && <5
-    , base64
-    , bimaru-client
-    , bytestring
-    , lens
-    , process
-    , repline
-    , scientific
-    , split
-    , string-conversions
-    , text
-    , transformers
-    , unordered-containers
-    , vector
+    , wai
     , wreq
     , yaml
   default-language: Haskell2010
@@ -155,19 +141,23 @@ test-suite bimaru-client-test
     , base64
     , bimaru-client
     , bytestring
+    , crypto-api
+    , http-client
     , lens
     , process
     , repline
     , scientific
+    , scotty
     , split
+    , stm
     , string-conversions
     , tasty
     , tasty-hunit
-    , tasty-quickcheck
     , text
     , transformers
     , unordered-containers
     , vector
+    , wai
     , wreq
     , yaml
   default-language: Haskell2010

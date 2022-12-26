@@ -28,7 +28,6 @@ dependencies:
 - base64
 - bytestring
 - lens
-- QuickCheck
 - scientific
 - string-conversions
 - split
@@ -37,6 +36,12 @@ dependencies:
 - wreq
 - yaml
 - vector
+- QuickCheck
+- scotty
+- wai
+- stm
+- crypto-api
+- http-client
 
 ghc-options:
 - -Wall
@@ -53,27 +58,18 @@ library:
   source-dirs: src
 
 executables:
-  bimaru-client-1:
+  bimaru-client:
     main:                Main.hs
-    source-dirs:         app1
+    source-dirs:         bimaru-client
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
     - bimaru-client
-  bimaru-client-2:
+  bimaru-server:
     main:                Main.hs
-    source-dirs:         app2
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - bimaru-client
-  bimaru-client-3:
-    main:                Main.hs
-    source-dirs:         app3
+    source-dirs:         bimaru-server
     ghc-options:
     - -threaded
     - -rtsopts
@@ -93,4 +89,3 @@ tests:
     - bimaru-client
     - tasty
     - tasty-hunit
-    - tasty-quickcheck

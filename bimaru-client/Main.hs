@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-
+module Main where
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Class(lift)
 import Control.Monad.Trans.State.Strict
@@ -15,7 +15,7 @@ import Data.Char (isSpace)
 import Bimaru
 import Types(Check, toDocument, fromDocument, Coord)
 import Network.Wreq
-    ( post, postWith, defaults, header, responseBody )
+    ( post, postWith, defaults, header, responseBody, getWith )
 import qualified Network.Wreq as Wreq
 
 import Control.Lens
@@ -43,6 +43,9 @@ commandCheck = "check"
 commandToggle :: String
 commandToggle = "toggle"
 
+commandNewToken :: String
+commandNewToken = "new"
+
 commandExit :: String
 commandExit = "exit"
 
@@ -51,6 +54,7 @@ cmd :: String -> Repl ()
 cmd c
   | trim c == commandShow = lift get >>= liftIO . Prelude.putStrLn . render . snd
   | trim c == commandCheck = lift get >>= check . (mkCheck . snd) >>= liftIO . Prelude.putStrLn
+  | trim c == commandNewToken = newToken >>= liftIO . Prelude.putStr
   | trim c == commandExit = exit "Exited the game."
   | commandToggle `L.isPrefixOf` trim c = do
     case tokens c of
@@ -73,6 +77,14 @@ check c = do
   resp <- liftIO $ postWith opts (url ++ "/check") body
   pure $ cs $ resp ^. responseBody
 
+newToken :: Repl String
+newToken = do
+  (url, _) <- lift get
+  let opts = defaults & header "Content-type" .~ ["text/x-yaml"]
+  resp <- liftIO $ getWith opts (url ++ "/newToken")
+  pure $ cs $ resp ^. responseBody
+
+
 -- toggle :: [Coord] -> Repl String
 -- toggle coords = do
 --   (url, _) <- lift get
@@ -90,7 +102,7 @@ exit msg = do
 -- Tab Completion: return a completion for partial words entered
 completer :: Monad m => WordCompleter m
 completer n = do
-  let names = [commandShow, commandCheck, commandToggle]
+  let names = [commandShow, commandCheck, commandToggle, commandNewToken]
   return $ Prelude.filter (L.isPrefixOf n) names
 
 ini :: Repl ()
@@ -114,7 +126,9 @@ final = do
   liftIO $ TIO.putStrLn "Goodbye!"
   return Exit
 
-main :: IO ()
+--stack run bimaru-client -- tokenas
+--stack run bimaru-client -- new
+main :: IO()
 main = do
   args <- getArgs
   case args of
@@ -123,8 +137,7 @@ main = do
 
 --If you want to start new session, first command line arg must be "new"
 run :: T.Text -> IO ()
-run token = if token == "new" then TIO.putStrLn "New game is happening" else
-  do
-  let url = "127.0.0.1:8008"
-  let fullUrl = T.unpack (T.concat ["http://", url, "/game/", token])
-  evalStateT (evalRepl (const $ pure ">>> ") cmd [] Nothing Nothing (Word completer) ini final) (fullUrl, emptyState)
+run token = do
+    let url = "localhost:3000/"
+    let fullUrl = T.unpack (T.concat ["http://", url, token])
+    evalStateT (evalRepl (const $ pure ">>> ") cmd [] Nothing Nothing (Word completer) ini final) (fullUrl, emptyState)

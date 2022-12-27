@@ -39,8 +39,12 @@ dependencies:
 - QuickCheck
 - scotty
 - wai
+- base64
 - stm
+- time
+- containers
 - crypto-api
+- http-types
 - http-client
 
 ghc-options:
@@ -58,18 +62,18 @@ library:
   source-dirs: src
 
 executables:
-  bimaru-client:
+  bimaru-server:
     main:                Main.hs
-    source-dirs:         bimaru-client
+    source-dirs:         bimaru-server
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
     - bimaru-client
-  bimaru-server:
+  bimaru-client:
     main:                Main.hs
-    source-dirs:         bimaru-server
+    source-dirs:         bimaru-client
     ghc-options:
     - -threaded
     - -rtsopts

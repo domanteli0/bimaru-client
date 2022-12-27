@@ -41,8 +41,10 @@ library
     , base >=4.7 && <5
     , base64
     , bytestring
+    , containers
     , crypto-api
     , http-client
+    , http-types
     , lens
     , process
     , repline
@@ -52,6 +54,7 @@ library
     , stm
     , string-conversions
     , text
+    , time
     , transformers
     , unordered-containers
     , vector
@@ -74,8 +77,10 @@ executable bimaru-client
     , base64
     , bimaru-client
     , bytestring
+    , containers
     , crypto-api
     , http-client
+    , http-types
     , lens
     , process
     , repline
@@ -85,6 +90,7 @@ executable bimaru-client
     , stm
     , string-conversions
     , text
+    , time
     , transformers
     , unordered-containers
     , vector
@@ -107,8 +113,10 @@ executable bimaru-server
     , base64
     , bimaru-client
     , bytestring
+    , containers
     , crypto-api
     , http-client
+    , http-types
     , lens
     , process
     , repline
@@ -118,6 +126,7 @@ executable bimaru-server
     , stm
     , string-conversions
     , text
+    , time
     , transformers
     , unordered-containers
     , vector
@@ -141,8 +150,10 @@ test-suite bimaru-client-test
     , base64
     , bimaru-client
     , bytestring
+    , containers
     , crypto-api
     , http-client
+    , http-types
     , lens
     , process
     , repline
@@ -154,6 +165,7 @@ test-suite bimaru-client-test
     , tasty
     , tasty-hunit
     , text
+    , time
     , transformers
     , unordered-containers
     , vector

@@ -20,7 +20,7 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/bimaru-client#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+- base
 - aeson
 - unordered-containers
 - repline
@@ -90,6 +90,8 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - QuickCheck
+    - tasty-quickcheck
     - bimaru-client
     - tasty
     - tasty-hunit

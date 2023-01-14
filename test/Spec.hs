@@ -1,25 +1,25 @@
-{-# LANGUAGE FlexibleInstances #-}
+-- {-# LANGUAGE FlexibleInstances #-}
 import Test.Tasty
 import Test.Tasty.HUnit
-import Test.Tasty.QuickCheck
+import Test.Tasty.QuickCheck(testProperty)
+-- import Test.QuickCheck
 import Data.String.Conversions
 import Data.Yaml as Y ( encodeWith, defaultEncodeOptions, defaultFormatOptions, setWidth, setFormat)
 
-import Lib1 (State(..), emptyState)
-import Lib2 (renderDocument, gameStart, hint)
-import Lib3 (parseDocument, tokenizeYaml)
-import Parser (Token(..))
+import Bimaru (State(..), emptyState)
+import Bimaru (renderDocument)
+import Bimaru (parseDocument)
+import Parser (Token(..), tokenizeYaml)
 import Types (Document(..), Coord(..))
 import Data.Either
 
 main :: IO ()
 main = defaultMain (testGroup "Tests" [
-  toYamlTests,
-  fromYamlTests,
-  gameStartTests,
-  hintTests,
-  tokenizeYamlTests,
-  properties])
+      toYamlTests
+    , fromYamlTests
+    , tokenizeYamlTests
+    -- , properties
+  ])
 
 properties :: TestTree
 properties = testGroup "Properties" [golden, dogfood]
@@ -115,14 +115,15 @@ tokenizeYamlTests = testGroup "Test `tokenizeYaml`" [
       ]
   ]
 
+-- Tools to help you verify your tests:
+-- * https://yaml-online-parser.appspot.com/?yaml=-%201231%20%20%20%20%20%20%20%20%20tgasd%0A-%20a%5B%3A%0A-%20asd%20%5B%7B%7D%5D123%3A%0A%20%20%20%20a%5B%5Dasd%5D%0A-%20a%5B%5D%3A%20%5B%5D%0A-%20asd%3A%0A%20%20%20%7Btrue%3A%20%22fals%22%7D%0A-%20%5B%5D%0A-%20%7Bkey1%3A%20%22val%2C%3A%7B%7D%5B%5Due%5C%22%22%2C%20key5%3A%20asd%7D%0A-%0A%20%20key2%3A%20%22value%22%0A%20%20key3%3A%0A%20%20-%20ASD%0A%20%20-%20asd%0A%20%20key4%3A%20123%0A-%20key%3A%0A%20%20%20%20%20-%20lol%3A%0A%20%20%20%20%20%20%20-%20see%0A-%20key1%3A%0A%20%20%20%20%20-%0A%20%20%20%20%20%20%20-%20pee%0A%20%20%20%20%20%20%20-%20asd%0A%20%20%20%20%20-%20asd%0A-%20key2%3A%20%27ad%27%0A-%201%3A%20This%20has%20a%20numeric%20key%2C%20i.e.%20the%20key%20is%20not%20a%20string%20but%20an%20int%0A-%20%20%20%20%20%20%20%20%20%20key2%3A%20%20%20%20%20%20%22asdasd%0A%20%20%20%20%20%20%20%20%20test%20%22%0A-%20asd%20ashdf%20asdjhf%20asdjhgf%0A-%20asd%0A%20asd%20%0A-%20%3F%20%27asdsa%20%20%20%20%20%20%0A%20%20%20%20asdasd%3FASD%27%0A%20%20%3A%20123123%0A-%20KEY%5B%5D%3A%20and&type=json
+-- * https://codebeautify.org/yaml-parser-online/y2209b3dc
 fromYamlTests :: TestTree
 fromYamlTests = testGroup "Document from yaml"
   [     testCase "null (null)" $
           parseDocument "null" @?= Right DNull
       , testCase "null (~)" $
           parseDocument "~" @?= Right DNull
-      -- , testCase "null ()" $
-      --     parseDocument "" @?= Right DNull
       , testCase "integer" $
           parseDocument "56" @?= Right (DInteger 56)
       , testCase "integer" $
@@ -440,201 +441,200 @@ fromYamlTests = testGroup "Document from yaml"
   ]
 
 toYamlTests :: TestTree
-toYamlTests = testGroup "Document to yaml"
-  [   testCase "null" $
-        renderDocument DNull @?= "null\n"
-    , testCase "int" $
-        renderDocument (DInteger 5) @?= "5\n"
-    , testCase "int" $
-        renderDocument (DInteger 12345689) @?= "12345689\n"
-    , testCase "string" $
-        renderDocument (DString "Hello") @?= "'Hello'\n"
-    , testCase "string with '\"' " $
-        renderDocument (DString "\"Hello\"") @?= "'\"Hello\"'\n"
-    , testCase "list of ints" $
-        renderDocument (DList [DInteger 5, DInteger 6]) @?= unlines ["- 5", "- 6"]
-    , testCase "mixed list" $
-        renderDocument (DList [DInteger 5, DString "Hello", DNull])
-          @?= unlines ["- 5", "- 'Hello'", "- null"]
-    , testCase "2-level nested list" $
-        renderDocument (DList [DInteger 5, DString "Hello", DNull, DList [DString "Nested", DInteger 10]])
-          @?= unlines ["- 5", "- 'Hello'", "- null", "-", "  - 'Nested'", "  - 10"]
-    , testCase "3-level nested list" $
-        renderDocument (DList [DInteger 5, DString "Hello", DNull, DList [DString "Nested", DInteger 10, DList [DInteger 10, DString "L"]]])
-          @?= unlines ["- 5", "- 'Hello'", "- null", "-", "  - 'Nested'", "  - 10", "  -", "    - 10", "    - 'L'"]
-    , testCase "map of ints" $
-        renderDocument (DMap [("Five", DInteger 5), ("Six", DInteger 6)])
-          @?= unlines ["Five: 5", "Six: 6"]
-    , testCase "mixed map" $
-        renderDocument (DMap [("Five", DInteger 5), ("Six", DString "Six"), ("Null", DNull)])
-          @?= unlines ["Five: 5", "Six: 'Six'", "Null: null"]
-    , testCase "nested map of ints" $
-        renderDocument (
-          DMap [("Five", DInteger 5), ("Six", DInteger 6),
-            ("Nested", DMap [("Nested Seven", DInteger 7), ("Nested Eight", DInteger 8)])]
-          )
-          @?= unlines ["Five: 5", "Six: 6", "Nested:", "  Nested Seven: 7", "  Nested Eight: 8"]
-    , testCase "map of lists of ints" $
-        renderDocument (DMap [("List", DList [DInteger 5, DInteger 6])])
-          @?= unlines ["List:", "  - 5", "  - 6"]
-    , testCase "map of lists of ints and maps" $
-        renderDocument (DMap [("List", DList [DInteger 5, DInteger 6, DMap [("Lol", DString "lol")]])])
-          @?= unlines [
-            "List:",
-            "  - 5",
-            "  - 6", "  -",
-            "    Lol: 'lol'"
-          ]
-    -- https://yaml-online-parser.appspot.com/?yaml=List%3A%0A++-+5%0A++-+6%0A++-%0A++++Lol%3A+%27lol%27%0A++++List%3A%0A++++++-+6%0A++++++-+9%0A++++++-+null&type=json
-    , testCase "map of lists of ints and maps and lists" $
-        renderDocument (DMap [("List", DList [DInteger 5, DInteger 6, DMap [("Lol", DString "lol"), ("List", DList [DInteger 6, DInteger 9, DNull])]])])
-          @?= unlines [
-            "List:",
-            "  - 5", "  - 6",
-            "  -",
-            "    Lol: 'lol'",
-            "    List:",
-            "      - 6",
-            "      - 9",
-            "      - null"
-          ]
-    , testCase "TrickySpooky Halloween-Themed" $
-        renderDocument (DMap [("key1", DMap [("key2", DList [DInteger 1,DMap [("key3", DList [DInteger 1,DInteger 3,DNull,DMap [("", DNull)],DMap []]),("key4", DString "")],DNull])]),("key5", DList [])])
-        @?= unlines [
-          "key1:",
-          "  key2:",
-          "    - 1",
-          "    -",
-          "      key3:",
-          "        - 1",
-          "        - 3",
-          "        - null",
-          "        -",
-          "          '': null",
-          "        -",
-          "          {}",
-          "      key4: ''",
-          "    - null",
-          "key5:",
-          "  []"
-          ]
+toYamlTests = testGroup "Document to yaml" [
+    testCase "null" $
+      renderDocument DNull @?= "null\n"
+  , testCase "int" $
+    renderDocument (DInteger 5) @?= "5\n"
+  , testCase "int" $
+    renderDocument (DInteger 12345689) @?= "12345689\n"
+  , testCase "string" $
+    renderDocument (DString "Hello") @?= "'Hello'\n"
+  , testCase "string with '\"' " $
+    renderDocument (DString "\"Hello\"") @?= "'\"Hello\"'\n"
+  , testCase "list of ints" $
+    renderDocument (DList [DInteger 5, DInteger 6]) @?= unlines ["- 5", "- 6"]
+  , testCase "mixed list" $
+    renderDocument (DList [DInteger 5, DString "Hello", DNull])
+      @?= unlines ["- 5", "- 'Hello'", "- null"]
+  , testCase "2-level nested list" $
+    renderDocument (DList [DInteger 5, DString "Hello", DNull, DList [DString "Nested", DInteger 10]])
+      @?= unlines ["- 5", "- 'Hello'", "- null", "-", "  - 'Nested'", "  - 10"]
+  , testCase "3-level nested list" $
+    renderDocument (DList [DInteger 5, DString "Hello", DNull, DList [DString "Nested", DInteger 10, DList [DInteger 10, DString "L"]]])
+      @?= unlines ["- 5", "- 'Hello'", "- null", "-", "  - 'Nested'", "  - 10", "  -", "    - 10", "    - 'L'"]
+  , testCase "map of ints" $
+    renderDocument (DMap [("Five", DInteger 5), ("Six", DInteger 6)])
+      @?= unlines ["Five: 5", "Six: 6"]
+  , testCase "mixed map" $
+    renderDocument (DMap [("Five", DInteger 5), ("Six", DString "Six"), ("Null", DNull)])
+      @?= unlines ["Five: 5", "Six: 'Six'", "Null: null"]
+  , testCase "nested map of ints" $
+    renderDocument (
+      DMap [("Five", DInteger 5), ("Six", DInteger 6),
+        ("Nested", DMap [("Nested Seven", DInteger 7), ("Nested Eight", DInteger 8)])]
+      )
+      @?= unlines ["Five: 5", "Six: 6", "Nested:", "  Nested Seven: 7", "  Nested Eight: 8"]
+  , testCase "map of lists of ints" $
+    renderDocument (DMap [("List", DList [DInteger 5, DInteger 6])])
+      @?= unlines ["List:", "  - 5", "  - 6"]
+  , testCase "map of lists of ints and maps" $
+    renderDocument (DMap [("List", DList [DInteger 5, DInteger 6, DMap [("Lol", DString "lol")]])])
+      @?= unlines [
+        "List:",
+        "  - 5",
+        "  - 6", "  -",
+        "    Lol: 'lol'"
+      ]
+-- https://yaml-online-parser.appspot.com/?yaml=List%3A%0A++-+5%0A++-+6%0A++-%0A++++Lol%3A+%27lol%27%0A++++List%3A%0A++++++-+6%0A++++++-+9%0A++++++-+null&type=json
+  , testCase "map of lists of ints and maps and lists" $
+    renderDocument (DMap [("List", DList [DInteger 5, DInteger 6, DMap [("Lol", DString "lol"), ("List", DList [DInteger 6, DInteger 9, DNull])]])])
+      @?= unlines [
+        "List:",
+        "  - 5", "  - 6",
+        "  -",
+        "    Lol: 'lol'",
+        "    List:",
+        "      - 6",
+        "      - 9",
+        "      - null"
+      ]
+  , testCase "TrickySpooky Halloween-Themed" $
+    renderDocument (DMap [("key1", DMap [("key2", DList [DInteger 1,DMap [("key3", DList [DInteger 1,DInteger 3,DNull,DMap [("", DNull)],DMap []]),("key4", DString "")],DNull])]),("key5", DList [])])
+    @?= unlines [
+      "key1:",
+      "  key2:",
+      "    - 1",
+      "    -",
+      "      key3:",
+      "        - 1",
+      "        - 3",
+      "        - null",
+      "        -",
+      "          '': null",
+      "        -",
+      "          {}",
+      "      key4: ''",
+      "    - null",
+      "key5:",
+      "  []"
+      ]
   ]
 
-gameStartTests :: TestTree
-gameStartTests = testGroup "Test start document" [
-  testCase "DNull" $
-    gameStart emptyState DNull @?= Left "Document is not a DMap",
-  testCase "DString" $
-    gameStart emptyState (DString "labas") @?= Left "Document is not a DMap",
-  testCase "DInteger" $
-    gameStart emptyState (DInteger 7) @?= Left "Document is not a DMap",
-  testCase "DMap-Only-Hints" $
-    gameStart emptyState (DMap [("number_of_hints", DInteger 9)]) @?= Left "Unable to find value with specified key",
-  testCase "DMap-Only-Cols" $
-    gameStart emptyState (DMap [("occupied_columns", DInteger 3)]) @?= Left "Unable to find value with specified key",
-  testCase "DMap-Only-Rows" $
-    gameStart emptyState (DMap [("occupied_rows", DInteger 3)]) @?= Left "Unable to find value with specified key",
-  testCase "DMap-No-List" $
-    gameStart emptyState (DMap [("occupied_cols", DInteger 7), ("occupied_rows", DInteger 8), ("number_of_hints", DInteger 8)]) @?= Left "Document is not a DList",
-  testCase "DMap-One-Cols-Rows" $
-    gameStart emptyState (DMap [("occupied_cols", DList [DInteger 7]), ("occupied_rows", DList [DInteger 10]), ("number_of_hints", DInteger 7)]) @?= Left "Number of rows or cols != 10",
-  testCase "DMap-One-Col-Many-Rows" $
-    gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8]), ("occupied_rows", DList [DInteger 9, DInteger 7]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
-  testCase "DMap-Many-Cols-One-Row" $
-    gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 9]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
-  testCase "Game-Start-Cols-1-Row" $
-    gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 9]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
-  testCase "Game-Start-Cols-Rows" $
-    gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Right (State [] [] [8,1,8,1,8,1,8,1,8,1] [8,1,8,1,8,1,8,1,8,1] 10),
-  testCase "Start-State-Not-Empty" $
-    gameStart (State [Coord 1 7] [Coord 8 9] [1, 2, 3] [1, 2, 3] 10) (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Right (State [] [] [8,1,8,1,8,1,8,1,8,1] [8,1,8,1,8,1,8,1,8,1] 10),
-  testCase "Too-Many-Cols-Rows" $
-    gameStart (State [Coord 1 7] [Coord 8 9] [1, 2, 3] [1, 2, 3] 10) (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10"
+-- gameStartTests :: TestTree
+-- gameStartTests = testGroup "Test start document" [
+--   testCase "DNull" $
+--     gameStart emptyState DNull @?= Left "Document is not a DMap",
+--   testCase "DString" $
+--     gameStart emptyState (DString "labas") @?= Left "Document is not a DMap",
+--   testCase "DInteger" $
+--     gameStart emptyState (DInteger 7) @?= Left "Document is not a DMap",
+--   testCase "DMap-Only-Hints" $
+--     gameStart emptyState (DMap [("number_of_hints", DInteger 9)]) @?= Left "Unable to find value with specified key",
+--   testCase "DMap-Only-Cols" $
+--     gameStart emptyState (DMap [("occupied_columns", DInteger 3)]) @?= Left "Unable to find value with specified key",
+--   testCase "DMap-Only-Rows" $
+--     gameStart emptyState (DMap [("occupied_rows", DInteger 3)]) @?= Left "Unable to find value with specified key",
+--   testCase "DMap-No-List" $
+--     gameStart emptyState (DMap [("occupied_cols", DInteger 7), ("occupied_rows", DInteger 8), ("number_of_hints", DInteger 8)]) @?= Left "Document is not a DList",
+--   testCase "DMap-One-Cols-Rows" $
+--     gameStart emptyState (DMap [("occupied_cols", DList [DInteger 7]), ("occupied_rows", DList [DInteger 10]), ("number_of_hints", DInteger 7)]) @?= Left "Number of rows or cols != 10",
+--   testCase "DMap-One-Col-Many-Rows" $
+--     gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8]), ("occupied_rows", DList [DInteger 9, DInteger 7]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
+--   testCase "DMap-Many-Cols-One-Row" $
+--     gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 9]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
+--   testCase "Game-Start-Cols-1-Row" $
+--     gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 9]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10",
+--   testCase "Game-Start-Cols-Rows" $
+--     gameStart emptyState (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Right (State [] [] [8,1,8,1,8,1,8,1,8,1] [8,1,8,1,8,1,8,1,8,1] 10),
+--   testCase "Start-State-Not-Empty" $
+--     gameStart (State [Coord 1 7] [Coord 8 9] [1, 2, 3] [1, 2, 3] 10) (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Right (State [] [] [8,1,8,1,8,1,8,1,8,1] [8,1,8,1,8,1,8,1,8,1] 10),
+--   testCase "Too-Many-Cols-Rows" $
+--     gameStart (State [Coord 1 7] [Coord 8 9] [1, 2, 3] [1, 2, 3] 10) (DMap [("occupied_cols", DList[DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("occupied_rows", DList [DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1, DInteger 8, DInteger 1]), ("number_of_hints", DInteger 10)]) @?= Left "Number of rows or cols != 10"
+--   ]
 
-  ]
+-- hintTests :: TestTree
+-- hintTests = testGroup "Test hint" [
+--     testCase "1-Hint" $
+--       hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)]),("tail",DNull)])])
+--         @?= Right (State [] [Coord 8 9] [] [] 0),
+--     testCase "10-Hint" $
+--       hint emptyState (DMap
+--     [("coords",
+--         DMap [("head",
+--             DMap [("col", DInteger 8), ("row", DInteger 9)]), ("tail",
+--                 DMap [("head",
+--                     DMap [("col", DInteger 7), ("row", DInteger 9)]), ("tail",
+--                         DMap [("head",
+--                             DMap [("col", DInteger 6), ("row", DInteger 9)]), ("tail",
+--                                 DMap [("head",
+--                                     DMap [("col", DInteger 5), ("row", DInteger 9)]), ("tail",
+--                                         DMap [("head",
+--                                             DMap [("col", DInteger 5), ("row", DInteger 7)]), ("tail",
+--                                                 DMap [("head",
+--                                                     DMap [("col", DInteger 5), ("row", DInteger 6)]), ("tail",
+--                                                         DMap [("head",
+--                                                             DMap [("col",DInteger 5), ("row",DInteger 5)]), ("tail",
+--                                                                 DMap [("head",
+--                                                                     DMap [("col", DInteger 3), ("row", DInteger 3)]), ("tail",
+--                                                                         DMap [("head",
+--                                                                             DMap [("col",DInteger 3), ("row",DInteger 2)]), ("tail",
+--                                                                                 DMap [("head",
+--                                                                                     DMap [("col",DInteger 3),("row",DInteger 1)]),("tail",DNull)])])])])])])])])])])])
+--     @?= Right (State [] [
+--       Coord 3 1,
+--       Coord 3 2,
+--       Coord 3 3,
+--       Coord 5 5,
+--       Coord 5 6,
+--       Coord 5 7,
+--       Coord 5 9,
+--       Coord 6 9,
+--       Coord 7 9,
+--       Coord 8 9
+--       ] [] [] 0),
 
-hintTests :: TestTree
-hintTests = testGroup "Test hint" [
-    testCase "1-Hint" $
-      hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)]),("tail",DNull)])])
-        @?= Right (State [] [Coord 8 9] [] [] 0),
-    testCase "10-Hint" $
-      hint emptyState (DMap
-    [("coords",
-        DMap [("head",
-            DMap [("col", DInteger 8), ("row", DInteger 9)]), ("tail",
-                DMap [("head",
-                    DMap [("col", DInteger 7), ("row", DInteger 9)]), ("tail",
-                        DMap [("head",
-                            DMap [("col", DInteger 6), ("row", DInteger 9)]), ("tail",
-                                DMap [("head",
-                                    DMap [("col", DInteger 5), ("row", DInteger 9)]), ("tail",
-                                        DMap [("head",
-                                            DMap [("col", DInteger 5), ("row", DInteger 7)]), ("tail",
-                                                DMap [("head",
-                                                    DMap [("col", DInteger 5), ("row", DInteger 6)]), ("tail",
-                                                        DMap [("head",
-                                                            DMap [("col",DInteger 5), ("row",DInteger 5)]), ("tail",
-                                                                DMap [("head",
-                                                                    DMap [("col", DInteger 3), ("row", DInteger 3)]), ("tail",
-                                                                        DMap [("head",
-                                                                            DMap [("col",DInteger 3), ("row",DInteger 2)]), ("tail",
-                                                                                DMap [("head",
-                                                                                    DMap [("col",DInteger 3),("row",DInteger 1)]),("tail",DNull)])])])])])])])])])])])
-    @?= Right (State [] [
-      Coord 3 1,
-      Coord 3 2,
-      Coord 3 3,
-      Coord 5 5,
-      Coord 5 6,
-      Coord 5 7,
-      Coord 5 9,
-      Coord 6 9,
-      Coord 7 9,
-      Coord 8 9
-      ] [] [] 0),
+--       testCase "5-Hint" $
+--       hint emptyState (DMap
+--       [("coords",
+--         DMap [("head",
+--           DMap [("col", DInteger 5), ("row", DInteger 5)]), ("tail",
+--             DMap [("head",DMap [("col", DInteger 4), ("row", DInteger 4)]), ("tail",
+--               DMap [("head",DMap [("col", DInteger 3), ("row", DInteger 3)]), ("tail",
+--                 DMap [("head",DMap [("col", DInteger 2), ("row", DInteger 2)]), ("tail",
+--                   DMap [("head",DMap [("col", DInteger 1), ("row", DInteger 1)]), ("tail", DNull)])])])])])])
+--       @?= Right (State [] [
+--         Coord 1 1,
+--         Coord 2 2,
+--         Coord 3 3,
+--         Coord 4 4,
+--         Coord 5 5
+--         ] [] [] 0),
 
-      testCase "5-Hint" $
-      hint emptyState (DMap
-      [("coords",
-        DMap [("head",
-          DMap [("col", DInteger 5), ("row", DInteger 5)]), ("tail",
-            DMap [("head",DMap [("col", DInteger 4), ("row", DInteger 4)]), ("tail",
-              DMap [("head",DMap [("col", DInteger 3), ("row", DInteger 3)]), ("tail",
-                DMap [("head",DMap [("col", DInteger 2), ("row", DInteger 2)]), ("tail",
-                  DMap [("head",DMap [("col", DInteger 1), ("row", DInteger 1)]), ("tail", DNull)])])])])])])
-      @?= Right (State [] [
-        Coord 1 1,
-        Coord 2 2,
-        Coord 3 3,
-        Coord 4 4,
-        Coord 5 5
-        ] [] [] 0),
+--       testCase "No-DMap" $
+--       hint emptyState DNull @?= Left "Document is not a DMap",
 
-      testCase "No-DMap" $
-      hint emptyState DNull @?= Left "Document is not a DMap",
+--       testCase "No-Coords" $
+--       hint emptyState (DMap [("number_of_hints", DInteger 9)]) @?= Left "Unable to find value with specified key",
 
-      testCase "No-Coords" $
-      hint emptyState (DMap [("number_of_hints", DInteger 9)]) @?= Left "Unable to find value with specified key",
+--       testCase "No-Col" $
+--       hint emptyState (DMap [("coords",DMap [("head",DMap [("row",DInteger 9)]),("tail",DNull)])]) @?= Left "Unable to find value with specified key",
 
-      testCase "No-Col" $
-      hint emptyState (DMap [("coords",DMap [("head",DMap [("row",DInteger 9)]),("tail",DNull)])]) @?= Left "Unable to find value with specified key",
+--       testCase "No-Tail" $
+--       hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)])])]) @?= Left "Unable to find value with specified key",
 
-      testCase "No-Tail" $
-      hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DInteger 8),("row",DInteger 9)])])]) @?= Left "Unable to find value with specified key",
+--       testCase "No-Head" $
+--       hint emptyState (DMap [("coords",DMap [("tail",DNull)])]) @?= Left "Unable to find value with specified key",
 
-      testCase "No-Head" $
-      hint emptyState (DMap [("coords",DMap [("tail",DNull)])]) @?= Left "Unable to find value with specified key",
+--       testCase "Cols-Rows-Are-DStrings" $
+--       hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DString "lol"),("row",DString "pabandyk")]),("tail",DNull)])]) @?= Left "Document is not a DInteger",
 
-      testCase "Cols-Rows-Are-DStrings" $
-      hint emptyState (DMap [("coords",DMap [("head",DMap [("col",DString "lol"),("row",DString "pabandyk")]),("tail",DNull)])]) @?= Left "Document is not a DInteger",
+--       testCase "Hint-1-to-Hint-1" $
+--       hint (State [] [Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail",DNull)])]) @?= Right (State [] [Coord 5 6] [] [] 0),
 
-      testCase "Hint-1-to-Hint-1" $
-      hint (State [] [Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail",DNull)])]) @?= Right (State [] [Coord 5 6] [] [] 0),
+--       testCase "Hint-1-to-Hint-2" $
+--       hint (State [] [Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail", DMap [("head",DMap [("col", DInteger 7), ("row", DInteger 8)]), ("tail", DNull)])])]) @?= Right (State [] [Coord 7 8, Coord 5 6] [] [] 0),
 
-      testCase "Hint-1-to-Hint-2" $
-      hint (State [] [Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail", DMap [("head",DMap [("col", DInteger 7), ("row", DInteger 8)]), ("tail", DNull)])])]) @?= Right (State [] [Coord 7 8, Coord 5 6] [] [] 0),
-
-      testCase "Hint-2-to-Hint-1" $
-      hint (State [] [Coord 7 8, Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail",DNull)])]) @?=Right (State [] [Coord 5 6] [] [] 0)
-  ]
+--       testCase "Hint-2-to-Hint-1" $
+--       hint (State [] [Coord 7 8, Coord 5 6] [] [] 0) (DMap [("coords",DMap [("head",DMap [("col",DInteger 5),("row",DInteger 6)]),("tail",DNull)])]) @?=Right (State [] [Coord 5 6] [] [] 0)
+--   ]

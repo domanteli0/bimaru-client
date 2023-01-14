@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.34.4.
+-- This file has been generated from package.yaml by hpack version 0.35.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -26,9 +26,12 @@ source-repository head
 library
   exposed-modules:
       Bimaru
+      MyState
       Parser
+      ParserState
       Session
       Testing
+      Token
       Types
   other-modules:
       Paths_bimaru_client
@@ -38,7 +41,7 @@ library
   build-depends:
       QuickCheck
     , aeson
-    , base >=4.7 && <5
+    , base
     , base64
     , bytestring
     , containers
@@ -73,7 +76,7 @@ executable bimaru-client
   build-depends:
       QuickCheck
     , aeson
-    , base >=4.7 && <5
+    , base
     , base64
     , bimaru-client
     , bytestring
@@ -109,7 +112,7 @@ executable bimaru-server
   build-depends:
       QuickCheck
     , aeson
-    , base >=4.7 && <5
+    , base
     , base64
     , bimaru-client
     , bytestring
@@ -146,7 +149,7 @@ test-suite bimaru-client-test
   build-depends:
       QuickCheck
     , aeson
-    , base >=4.7 && <5
+    , base
     , base64
     , bimaru-client
     , bytestring
@@ -164,6 +167,7 @@ test-suite bimaru-client-test
     , string-conversions
     , tasty
     , tasty-hunit
+    , tasty-quickcheck
     , text
     , time
     , transformers
